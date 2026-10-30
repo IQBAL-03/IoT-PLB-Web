@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Dashboard kendali sistem penyiraman tanaman otomatis berbasis IoT. Monitor kelembapan tanah dan kontrol pompa secara realtime." />
+  <title>PlantCare IoT — Sistem Penyiraman Otomatis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" href="css/style.css" as="style" />
+  <link rel="preload" href="js/app.js" as="script" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <div class="header__brand">
+        <div class="header__logo" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="18" cy="18" r="18" fill="#2D6A4F"/>
+            <path d="M18 8C18 8 10 14 10 20C10 24.4183 13.5817 28 18 28C22.4183 28 26 24.4183 26 20C26 14 18 8 18 8Z" fill="#52B788"/>
+            <path d="M18 14C18 14 14 17 14 20C14 22.2091 15.7909 24 18 24C20.2091 24 22 22.2091 22 20C22 17 18 14 18 14Z" fill="#95D5B2"/>
+            <rect x="17" y="24" width="2" height="4" rx="1" fill="#1B4332"/>
+          </svg>
+        </div>
+        <div class="header__title-group">
+          <h1 class="header__title">PlantCare IoT</h1>
+          <span class="header__subtitle">Sistem Penyiraman Otomatis</span>
+        </div>
+      </div>
+      <div class="header__meta">
+        <div class="connection-badge" id="connectionBadge">
+          <span class="connection-badge__dot"></span>
+          <span class="connection-badge__text" id="connectionText">Menghubungkan...</span>
+        </div>
+        <div class="header__time" id="currentTime">--:--:--</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main" id="main">
+    <div class="container">
+
+      <section class="section" aria-label="Status Sistem">
+        <div class="section__header">
+          <h2 class="section__title">Status Sistem</h2>
+          <button class="btn btn--ghost btn--sm" id="refreshBtn" aria-label="Refresh status">
+            <svg class="btn__icon" id="refreshIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            Refresh
+          </button>
+        </div>
+
+        <div class="cards-grid">
+
+          <div class="card card--pump" id="pumpCard">
+            <div class="card__header">
+              <div class="card__icon-wrap card__icon-wrap--pump">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                  <path d="M12 6v6l4 2"/>
+                </svg>
+              </div>
+              <span class="card__label">Status Pompa</span>
+            </div>
+            <div class="card__body">
+              <div class="pump-status" id="pumpStatus">
+                <div class="pump-status__indicator" id="pumpIndicator">
+                  <div class="pump-status__ring"></div>
+                  <div class="pump-status__ring pump-status__ring--2"></div>
+                  <div class="pump-status__dot" id="pumpDot"></div>
+                </div>
+                <div class="pump-status__info">
+                  <span class="pump-status__state" id="pumpState">MEMUAT...</span>
+                  <span class="pump-status__detail" id="pumpDetail">Mengambil data...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card--moisture" id="moistureCard">
+            <div class="card__header">
+              <div class="card__icon-wrap card__icon-wrap--moisture">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L5 12a7 7 0 1 0 14 0L12 2z"/>
+                </svg>
+              </div>
+              <span class="card__label">Kelembapan Tanah</span>
+            </div>
+            <div class="card__body">
+              <div class="moisture-gauge">
+                <div class="moisture-gauge__circle">
+                  <svg class="moisture-gauge__svg" viewBox="0 0 120 120">
+                    <circle class="moisture-gauge__track" cx="60" cy="60" r="50" />
+                    <circle class="moisture-gauge__fill" id="gaugeArc" cx="60" cy="60" r="50"
+                      stroke-dasharray="314"
+                      stroke-dashoffset="314"
+                      transform="rotate(-90 60 60)" />
+                  </svg>
+                  <div class="moisture-gauge__center">
+                    <span class="moisture-gauge__value" id="moistureValue">—</span>
+                    <span class="moisture-gauge__unit">%</span>
+                  </div>
+                </div>
+                <div class="moisture-gauge__meta">
+                  <span class="moisture-gauge__status" id="moistureStatus">Memuat data...</span>
+                  <div class="moisture-gauge__bar-wrap">
+                    <div class="moisture-gauge__bar" id="moistureBar"></div>
+                  </div>
+                  <div class="moisture-gauge__legend">
+                    <span>Kering</span>
+                    <span>Lembap</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card--mode" id="modeCard">
+            <div class="card__header">
+              <div class="card__icon-wrap card__icon-wrap--mode">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M21 12h-2M5 12H3M17.66 17.66l-1.41-1.41M6.75 6.75L5.34 5.34M12 19v2M12 3V1"/>
+                </svg>
+              </div>
+              <span class="card__label">Mode Sistem</span>
+            </div>
+            <div class="card__body">
+              <div class="mode-toggle-wrap">
+                <div class="mode-labels">
+                  <span class="mode-label" id="modeManualLabel">Manual</span>
+                  <span class="mode-label mode-label--active" id="modeAutoLabel">Otomatis</span>
+                </div>
+                <label class="mode-toggle" for="modeSwitch" aria-label="Toggle mode manual/otomatis">
+                  <input type="checkbox" id="modeSwitch" class="mode-toggle__input" checked />
+                  <span class="mode-toggle__track">
+                    <span class="mode-toggle__thumb"></span>
+                  </span>
+                </label>
+                <span class="mode-current" id="modeCurrent">Mode: Otomatis</span>
+              </div>
+              <p class="mode-desc" id="modeDesc">Pompa bekerja otomatis berdasarkan pembacaan sensor kelembapan.</p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="section" aria-label="Kontrol Manual">
+        <div class="section__header">
+          <h2 class="section__title">Kontrol Manual</h2>
+          <span class="section__badge" id="manualBadgeStatus">Mode Otomatis Aktif</span>
+        </div>
+        <div class="control-panel" id="controlPanel">
+          <div class="control-panel__info">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span id="controlInfo">Aktifkan mode manual untuk mengontrol pompa secara langsung.</span>
+          </div>
+          <div class="control-buttons">
+            <button class="btn btn--primary btn--lg" id="pumpOnBtn" disabled aria-label="Nyalakan pompa">
+              <svg class="btn__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Nyalakan Pompa
+            </button>
+            <button class="btn btn--danger btn--lg" id="pumpOffBtn" disabled aria-label="Matikan pompa">
+              <svg class="btn__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+              </svg>
+              Matikan Pompa
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-label="Riwayat Penyiraman">
+        <div class="section__header">
+          <h2 class="section__title">Riwayat Penyiraman</h2>
+          <div class="filter-group">
+            <select class="select" id="historyFilter" aria-label="Filter riwayat">
+              <option value="all">Semua</option>
+              <option value="auto">Otomatis</option>
+              <option value="manual">Manual</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="history-wrap">
+          <div class="skeleton-list" id="historySkeleton">
+            <div class="skeleton-item"><div class="skeleton skeleton--line"></div></div>
+            <div class="skeleton-item"><div class="skeleton skeleton--line"></div></div>
+            <div class="skeleton-item"><div class="skeleton skeleton--line"></div></div>
+          </div>
+
+          <div class="table-wrap" id="historyTableWrap" style="display:none">
+            <table class="table" id="historyTable">
+              <thead>
+                <tr>
+                  <th scope="col">Waktu</th>
+                  <th scope="col">Aksi</th>
+                  <th scope="col">Mode</th>
+                  <th scope="col">Kelembapan</th>
+                  <th scope="col">Durasi</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+              </tbody>
+            </table>
+          </div>
+
+          <div class="empty-state" id="historyEmpty" style="display:none">
+            <div class="empty-state__icon">🌱</div>
+            <p class="empty-state__text">Belum ada riwayat penyiraman</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <span>© 2026 PlantCare IoT — Sistem Penyiraman Tanaman Otomatis</span>
+      <span class="footer__tech">ESP32 · Blynk · Golang · Vercel</span>
+    </div>
+  </footer>
+
+  <script src="js/app.js" defer></script>
+</body>
+</html>
