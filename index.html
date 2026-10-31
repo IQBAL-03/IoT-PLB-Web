@@ -10,7 +10,7 @@
   <link rel="preload" href="css/style.css" as="style" />
   <link rel="preload" href="js/app.js" as="script" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=1.2" />
+  <link rel="stylesheet" href="css/style.css?v=1.3" />
 </head>
 <body>
 
@@ -30,6 +30,20 @@
           <span class="header__subtitle">Sistem Penyiraman Otomatis</span>
         </div>
       </div>
+
+      <!-- Controls: Multi-Device Selector & User Profile -->
+      <div class="header__controls">
+        <div class="unit-selector-wrap" title="Pilih unit tanaman">
+          <select id="deviceSelector" class="select select--device" aria-label="Pilih Unit Tanaman">
+            <option value="DEV-PLB-001">🌿 Unit Utama</option>
+          </select>
+          <button class="btn btn--ghost btn--xs" id="addDeviceBtn" title="Hubungkan unit baru">+ Unit</button>
+        </div>
+        <div id="userAuthArea">
+          <button class="btn btn--ghost btn--xs" id="authBtn">👤 Masuk</button>
+        </div>
+      </div>
+
       <div class="header__meta">
         <div class="connection-badge" id="connectionBadge">
           <span class="connection-badge__dot"></span>
@@ -279,6 +293,81 @@
     </div>
   </main>
 
+  <!-- Modal: Auth (Login & Register) -->
+  <div class="modal" id="authModal" style="display:none;" aria-hidden="true">
+    <div class="modal__backdrop" id="authModalBackdrop"></div>
+    <div class="modal__dialog">
+      <div class="modal__header">
+        <h3 class="modal__title" id="authModalTitle">Masuk ke Akun</h3>
+        <button class="modal__close" id="closeAuthModal" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="modal__tabs">
+        <button class="modal__tab modal__tab--active" id="tabLogin">Masuk</button>
+        <button class="modal__tab" id="tabRegister">Daftar Baru</button>
+      </div>
+      <div class="modal__body">
+        <!-- Form Login -->
+        <form id="loginForm" class="auth-form">
+          <div class="form-group">
+            <label for="loginEmail" class="form-label">Email</label>
+            <input type="email" id="loginEmail" class="input" placeholder="nama@email.com" required />
+          </div>
+          <div class="form-group">
+            <label for="loginPassword" class="form-label">Password</label>
+            <input type="password" id="loginPassword" class="input" placeholder="Minimal 6 karakter" required />
+          </div>
+          <button type="submit" class="btn btn--primary btn--full" id="loginSubmitBtn">Masuk</button>
+        </form>
+
+        <!-- Form Register -->
+        <form id="registerForm" class="auth-form" style="display:none;">
+          <div class="form-group">
+            <label for="regName" class="form-label">Nama Lengkap</label>
+            <input type="text" id="regName" class="input" placeholder="Nama Anda" required />
+          </div>
+          <div class="form-group">
+            <label for="regEmail" class="form-label">Email</label>
+            <input type="email" id="regEmail" class="input" placeholder="nama@email.com" required />
+          </div>
+          <div class="form-group">
+            <label for="regPassword" class="form-label">Password</label>
+            <input type="password" id="regPassword" class="input" placeholder="Minimal 6 karakter" required />
+          </div>
+          <button type="submit" class="btn btn--primary btn--full" id="regSubmitBtn">Daftar Akun</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Hubungkan / Claim Unit Baru -->
+  <div class="modal" id="claimModal" style="display:none;" aria-hidden="true">
+    <div class="modal__backdrop" id="claimModalBackdrop"></div>
+    <div class="modal__dialog">
+      <div class="modal__header">
+        <h3 class="modal__title">Hubungkan Unit Baru</h3>
+        <button class="modal__close" id="closeClaimModal" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc">Masukkan kode unik yang tertera pada stiker atau layar LCD unit ESP32 Anda.</p>
+        <form id="claimForm" class="auth-form">
+          <div class="form-group">
+            <label for="claimDeviceId" class="form-label">Device ID</label>
+            <input type="text" id="claimDeviceId" class="input" placeholder="Contoh: PLB-8821 atau DEV-PLB-002" required />
+          </div>
+          <div class="form-group">
+            <label for="claimPairingCode" class="form-label">Kode Pairing</label>
+            <input type="text" id="claimPairingCode" class="input" placeholder="Kode default: 8821" required />
+          </div>
+          <div class="form-group">
+            <label for="claimDeviceName" class="form-label">Nama / Lokasi Unit</label>
+            <input type="text" id="claimDeviceName" class="input" placeholder="Contoh: Tanaman Balkon Atas" required />
+          </div>
+          <button type="submit" class="btn btn--primary btn--full" id="claimSubmitBtn">Hubungkan ke Akun</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <footer class="footer">
@@ -288,6 +377,6 @@
     </div>
   </footer>
 
-  <script src="js/app.js?v=1.2" defer></script>
+  <script src="js/app.js?v=1.3" defer></script>
 </body>
 </html>

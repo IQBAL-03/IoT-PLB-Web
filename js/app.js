@@ -14,7 +14,17 @@ const state = {
   historyFilter: 'all',
   lastFetch: 0,
   lastTimestamp: null,
+  currentDeviceId: localStorage.getItem('plantcare_device') || 'DEV-PLB-001',
+  devices: [],
+  token: localStorage.getItem('plantcare_token') || null,
+  user: null,
 };
+
+try {
+  state.user = JSON.parse(localStorage.getItem('plantcare_user') || 'null');
+} catch {
+  state.user = null;
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -55,17 +65,49 @@ const dom = {
   testMode:           $('testMode'),
   testSendBtn:        $('testSendBtn'),
   toastContainer:     $('toastContainer'),
+
+  // Multi-Device & Auth elements
+  deviceSelector:     $('deviceSelector'),
+  addDeviceBtn:       $('addDeviceBtn'),
+  userAuthArea:       $('userAuthArea'),
+
+  // Auth Modal
+  authModal:          $('authModal'),
+  authModalBackdrop:  $('authModalBackdrop'),
+  closeAuthModal:     $('closeAuthModal'),
+  tabLogin:           $('tabLogin'),
+  tabRegister:        $('tabRegister'),
+  authModalTitle:     $('authModalTitle'),
+  loginForm:          $('loginForm'),
+  loginEmail:         $('loginEmail'),
+  loginPassword:      $('loginPassword'),
+  loginSubmitBtn:     $('loginSubmitBtn'),
+  registerForm:       $('registerForm'),
+  regName:            $('regName'),
+  regEmail:           $('regEmail'),
+  regPassword:        $('regPassword'),
+  regSubmitBtn:       $('regSubmitBtn'),
+
+  // Claim Modal
+  claimModal:         $('claimModal'),
+  claimModalBackdrop: $('claimModalBackdrop'),
+  closeClaimModal:    $('closeClaimModal'),
+  claimForm:          $('claimForm'),
+  claimDeviceId:      $('claimDeviceId'),
+  claimPairingCode:   $('claimPairingCode'),
+  claimDeviceName:    $('claimDeviceName'),
+  claimSubmitBtn:     $('claimSubmitBtn'),
 };
 
 const MOCK = {
   status: () => ({
+    device_id: state.currentDeviceId,
     pump_on:   state.pumpOn,
     moisture:  state.moisture ?? 45,
     mode:      state.isManual ? 'manual' : 'auto',
     threshold: 50,
     timestamp: new Date().toISOString(),
   }),
-
   history: [],
 };
 
@@ -74,50 +116,36 @@ const controller = new AbortController();
 async function apiFetch(endpoint, options = {}) {
   if (CONFIG.MOCK_MODE) return mockFetch(endpoint, options);
 
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept-Encoding': 'gzip',
+    ...(options.headers || {}),
+  };
+  if (state.token) {
+    headers['Authorization'] = `Bearer ${state.token}`;
+  }
+
   const res = await fetch(`${CONFIG.API_BASE}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept-Encoding': 'gzip',
-    },
     signal: AbortSignal.timeout(8000),
     ...options,
+    headers,
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}));
-    throw new Error(errorBody.detail || errorBody.error || `HTTP ${res.status}`);
+    throw new Error(errorBody.error || errorBody.detail || `HTTP ${res.status}`);
   }
   return res.json();
 }
 
 async function mockFetch(endpoint, options) {
-  await delay(200 + Math.random() * 100);
-  if (endpoint === '/status')   return MOCK.status();
-  if (endpoint === '/history')  return MOCK.history;
-  if (endpoint === '/history/clear') { MOCK.history = []; return { ok: true }; }
-  if (endpoint === '/ping')     return { status: 'ok' };
-  if (endpoint === '/pump/on')  { state.pumpOn = true;  return { ok: true, message: 'Pompa dinyalakan' }; }
-  if (endpoint === '/pump/off') { state.pumpOn = false; return { ok: true, message: 'Pompa dimatikan' }; }
-  if (endpoint === '/mode')     return { ok: true };
-  if (endpoint === '/webhook') {
-    let body = {};
-    if (options && options.body) {
-      try { body = JSON.parse(options.body); } catch(e) {}
-    }
-    const moist = body.moisture ?? 40;
-    const action = body.action ?? (body.pump_on ? 'ON' : 'OFF');
-    const mode = body.mode ?? 'auto';
-    state.moisture = moist;
-    state.pumpOn = body.pump_on ?? (action === 'ON');
-    MOCK.history.unshift({
-      id: Date.now(),
-      timestamp: new Date().toISOString(),
-      action: action,
-      mode: mode,
-      moisture: moist,
-      duration: '—'
-    });
-    return { ok: true, moisture: moist, pump_on: state.pumpOn };
-  }
+  await delay(150);
+  if (endpoint.startsWith('/status'))  return MOCK.status();
+  if (endpoint.startsWith('/history')) return MOCK.history;
+  if (endpoint.startsWith('/devices')) return [{ device_id: 'DEV-PLB-001', name: 'Unit Utama', is_owner: true }];
+  if (endpoint === '/ping')            return { status: 'ok' };
+  if (endpoint === '/pump/on')         { state.pumpOn = true;  return { ok: true, message: 'Pompa dinyalakan' }; }
+  if (endpoint === '/pump/off')        { state.pumpOn = false; return { ok: true, message: 'Pompa dimatikan' }; }
+  if (endpoint === '/mode')            return { ok: true };
   throw new Error('Unknown endpoint');
 }
 
@@ -230,18 +258,209 @@ function renderHistory(data) {
   `).join('');
 }
 
+// ─── Multi-Device Management ──────────────────────────────────────────────────
+
+async function fetchDevices() {
+  try {
+    const list = await apiFetch('/devices');
+    state.devices = list || [];
+    renderDeviceSelector();
+  } catch (err) {
+    console.warn('[PlantCare] Could not fetch devices:', err);
+  }
+}
+
+function renderDeviceSelector() {
+  if (!dom.deviceSelector) return;
+  dom.deviceSelector.innerHTML = state.devices.map(d => `
+    <option value="${d.device_id}" ${d.device_id === state.currentDeviceId ? 'selected' : ''}>
+      ${d.is_owner ? '🌱' : '🌿'} ${d.name} (${d.device_id})
+    </option>
+  `).join('');
+
+  // Validate active device ID
+  const exists = state.devices.some(d => d.device_id === state.currentDeviceId);
+  if (!exists && state.devices.length > 0) {
+    state.currentDeviceId = state.devices[0].device_id;
+    localStorage.setItem('plantcare_device', state.currentDeviceId);
+    dom.deviceSelector.value = state.currentDeviceId;
+  }
+}
+
+async function handleDeviceChange(e) {
+  state.currentDeviceId = e.target.value;
+  localStorage.setItem('plantcare_device', state.currentDeviceId);
+  showToast(`Beralih ke unit: ${state.currentDeviceId}`, 'info');
+  await Promise.all([fetchStatus(), fetchHistory()]);
+}
+
+// ─── User Authentication UI & Actions ─────────────────────────────────────────
+
+function renderAuthUI() {
+  if (!dom.userAuthArea) return;
+  if (state.user && state.token) {
+    dom.userAuthArea.innerHTML = `
+      <div class="user-badge">
+        <span>👤 ${state.user.name}</span>
+        <button class="user-badge__btn" id="logoutBtn" title="Keluar akun">Keluar</button>
+      </div>
+    `;
+    const logoutBtn = $('logoutBtn');
+    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+  } else {
+    dom.userAuthArea.innerHTML = `
+      <button class="btn btn--ghost btn--xs" id="authBtn">👤 Masuk</button>
+    `;
+    const authBtn = $('authBtn');
+    if (authBtn) authBtn.addEventListener('click', openAuthModal);
+  }
+}
+
+function openAuthModal() {
+  dom.authModal.style.display = 'flex';
+  dom.authModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAuthModal() {
+  dom.authModal.style.display = 'none';
+  dom.authModal.setAttribute('aria-hidden', 'true');
+}
+
+function openClaimModal() {
+  if (!state.token) {
+    showToast('Silakan login terlebih dahulu untuk mendaftarkan unit.', 'info');
+    openAuthModal();
+    return;
+  }
+  dom.claimModal.style.display = 'flex';
+  dom.claimModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeClaimModal() {
+  dom.claimModal.style.display = 'none';
+  dom.claimModal.setAttribute('aria-hidden', 'true');
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  dom.loginSubmitBtn.disabled = true;
+  dom.loginSubmitBtn.textContent = 'Memverifikasi...';
+
+  try {
+    const res = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: dom.loginEmail.value,
+        password: dom.loginPassword.value,
+      }),
+    });
+
+    state.token = res.token;
+    state.user = res.user;
+    localStorage.setItem('plantcare_token', res.token);
+    localStorage.setItem('plantcare_user', JSON.stringify(res.user));
+
+    renderAuthUI();
+    closeAuthModal();
+    showToast(`Selamat datang kembali, ${res.user.name}!`, 'success');
+    await fetchDevices();
+    await Promise.all([fetchStatus(), fetchHistory()]);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    dom.loginSubmitBtn.disabled = false;
+    dom.loginSubmitBtn.textContent = 'Masuk';
+  }
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  dom.regSubmitBtn.disabled = true;
+  dom.regSubmitBtn.textContent = 'Mendaftar...';
+
+  try {
+    const res = await apiFetch('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: dom.regName.value,
+        email: dom.regEmail.value,
+        password: dom.regPassword.value,
+      }),
+    });
+
+    state.token = res.token;
+    state.user = res.user;
+    localStorage.setItem('plantcare_token', res.token);
+    localStorage.setItem('plantcare_user', JSON.stringify(res.user));
+
+    renderAuthUI();
+    closeAuthModal();
+    showToast(`Akun berhasil dibuat! Halo, ${res.user.name}!`, 'success');
+    await fetchDevices();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    dom.regSubmitBtn.disabled = false;
+    dom.regSubmitBtn.textContent = 'Daftar Akun';
+  }
+}
+
+function handleLogout() {
+  state.token = null;
+  state.user = null;
+  localStorage.removeItem('plantcare_token');
+  localStorage.removeItem('plantcare_user');
+  renderAuthUI();
+  showToast('Anda telah keluar.', 'info');
+  fetchDevices();
+}
+
+async function handleClaimDevice(e) {
+  e.preventDefault();
+  dom.claimSubmitBtn.disabled = true;
+  dom.claimSubmitBtn.textContent = 'Menghubungkan...';
+
+  try {
+    const res = await apiFetch('/devices/claim', {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id: dom.claimDeviceId.value,
+        pairing_code: dom.claimPairingCode.value,
+        name: dom.claimDeviceName.value,
+      }),
+    });
+
+    showToast(res.message || 'Unit berhasil dihubungkan!', 'success');
+    closeClaimModal();
+    dom.claimForm.reset();
+
+    state.currentDeviceId = res.device_id;
+    localStorage.setItem('plantcare_device', res.device_id);
+
+    await fetchDevices();
+    await Promise.all([fetchStatus(), fetchHistory()]);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    dom.claimSubmitBtn.disabled = false;
+    dom.claimSubmitBtn.textContent = 'Hubungkan ke Akun';
+  }
+}
+
+// ─── Status, Control & Polling ────────────────────────────────────────────────
+
 async function fetchStatus() {
   const now = Date.now();
   if (document.hidden && now - state.lastFetch < 10000) return;
   state.lastFetch = now;
 
   try {
-    const data = await apiFetch('/status');
+    const data = await apiFetch(`/status?device_id=${encodeURIComponent(state.currentDeviceId)}`);
     setConnected(true);
     renderPump(data.pump_on);
     renderMoisture(data.moisture);
 
-    // Sync mode if user on this device is not actively dragging the switch
+    // Sync mode if user is not actively toggling
     if (data.mode && !dom.modeSwitch._userChanged) {
       const isManual = data.mode === 'manual';
       if (dom.modeSwitch.checked !== !isManual) {
@@ -250,7 +469,7 @@ async function fetchStatus() {
       }
     }
 
-    // Cross-device sync: If timestamp updated (e.g. from phone or ESP32), refresh history
+    // Cross-device sync: trigger history fetch if status timestamp changed
     if (data.timestamp && data.timestamp !== state.lastTimestamp) {
       state.lastTimestamp = data.timestamp;
       fetchHistory();
@@ -263,7 +482,7 @@ async function fetchStatus() {
 
 async function fetchHistory() {
   try {
-    const data = await apiFetch('/history');
+    const data = await apiFetch(`/history?device_id=${encodeURIComponent(state.currentDeviceId)}`);
     renderHistory(data);
   } catch (err) {
     dom.historySkeleton.style.display = 'none';
@@ -290,12 +509,15 @@ async function setPump(on) {
   `;
 
   try {
-    const res = await apiFetch(on ? '/pump/on' : '/pump/off', { method: 'POST' });
+    const res = await apiFetch(on ? '/pump/on' : '/pump/off', {
+      method: 'POST',
+      body: JSON.stringify({ device_id: state.currentDeviceId }),
+    });
     renderPump(on);
     showToast(res.message || (on ? 'Pompa dinyalakan' : 'Pompa dimatikan'), 'success');
     await Promise.all([fetchStatus(), fetchHistory()]);
   } catch (err) {
-    showToast('Gagal mengontrol pompa. Coba lagi.', 'error');
+    showToast(`Gagal: ${err.message}`, 'error');
     console.error('[PlantCare] Pump control error:', err);
   } finally {
     btn.innerHTML = originalHTML;
@@ -308,11 +530,12 @@ async function setMode(isAuto) {
   try {
     await apiFetch('/mode', {
       method: 'POST',
-      body:   JSON.stringify({ mode: !isAuto ? 'manual' : 'auto' }),
+      body:   JSON.stringify({ device_id: state.currentDeviceId, mode: !isAuto ? 'manual' : 'auto' }),
     });
     showToast(`Mode diubah ke: ${!isAuto ? 'Manual' : 'Otomatis'}`, 'info');
     await fetchStatus();
   } catch (err) {
+    showToast(`Gagal: ${err.message}`, 'error');
     console.error('[PlantCare] Mode change error:', err);
   } finally {
     setTimeout(() => { dom.modeSwitch._userChanged = false; }, 1500);
@@ -335,7 +558,7 @@ function showToast(message, type = 'info') {
 async function handleRefresh() {
   dom.refreshIcon.classList.add('spinning');
   dom.refreshBtn.disabled = true;
-  await Promise.all([fetchStatus(), fetchHistory()]);
+  await Promise.all([fetchStatus(), fetchHistory(), fetchDevices()]);
   dom.refreshIcon.classList.remove('spinning');
   dom.refreshBtn.disabled = false;
   showToast('Data diperbarui', 'success');
@@ -353,9 +576,10 @@ async function handleTestSend(e) {
   dom.testSendBtn.innerHTML = `Mengirim...`;
 
   try {
-    const res = await apiFetch('/webhook', {
+    await apiFetch('/webhook', {
       method: 'POST',
       body: JSON.stringify({
+        device_id: state.currentDeviceId,
         moisture: moisture,
         pump_on: pumpOn,
         action: action,
@@ -364,10 +588,10 @@ async function handleTestSend(e) {
       }),
     });
 
-    showToast(`Data terkirim ke DB! Kelembapan: ${moisture}%, Pompa: ${action}`, 'success');
+    showToast(`Data unit ${state.currentDeviceId} tersimpan! Kelembapan: ${moisture}%, Pompa: ${action}`, 'success');
     await Promise.all([fetchStatus(), fetchHistory()]);
   } catch (err) {
-    showToast(`Gagal mengirim ke DB: ${err.message}`, 'error');
+    showToast(`Gagal: ${err.message}`, 'error');
     console.error('[PlantCare] Test send error:', err);
   } finally {
     dom.testSendBtn.innerHTML = originalHTML;
@@ -376,18 +600,56 @@ async function handleTestSend(e) {
 }
 
 async function handleClearHistory() {
-  if (!confirm('Apakah Anda yakin ingin menghapus seluruh riwayat penyiraman di database?')) return;
+  if (!confirm(`Hapus seluruh riwayat untuk unit ${state.currentDeviceId}?`)) return;
   try {
-    await apiFetch('/history/clear', { method: 'POST' });
-    showToast('Riwayat berhasil dibersihkan dari DB', 'info');
+    await apiFetch(`/history/clear?device_id=${encodeURIComponent(state.currentDeviceId)}`, { method: 'POST' });
+    showToast('Riwayat unit berhasil dibersihkan', 'info');
     await fetchHistory();
   } catch (err) {
-    showToast(`Gagal membersihkan riwayat: ${err.message}`, 'error');
+    showToast(`Gagal: ${err.message}`, 'error');
     console.error('[PlantCare] Clear history error:', err);
   }
 }
 
 function bindEvents() {
+  // Device selector
+  if (dom.deviceSelector) {
+    dom.deviceSelector.addEventListener('change', handleDeviceChange);
+  }
+  if (dom.addDeviceBtn) {
+    dom.addDeviceBtn.addEventListener('click', openClaimModal);
+  }
+
+  // Modal close handlers
+  if (dom.closeAuthModal) dom.closeAuthModal.addEventListener('click', closeAuthModal);
+  if (dom.authModalBackdrop) dom.authModalBackdrop.addEventListener('click', closeAuthModal);
+  if (dom.closeClaimModal) dom.closeClaimModal.addEventListener('click', closeClaimModal);
+  if (dom.claimModalBackdrop) dom.claimModalBackdrop.addEventListener('click', closeClaimModal);
+
+  // Tabs Login / Register
+  if (dom.tabLogin && dom.tabRegister) {
+    dom.tabLogin.addEventListener('click', () => {
+      dom.tabLogin.classList.add('modal__tab--active');
+      dom.tabRegister.classList.remove('modal__tab--active');
+      dom.loginForm.style.display = 'flex';
+      dom.registerForm.style.display = 'none';
+      dom.authModalTitle.textContent = 'Masuk ke Akun';
+    });
+    dom.tabRegister.addEventListener('click', () => {
+      dom.tabRegister.classList.add('modal__tab--active');
+      dom.tabLogin.classList.remove('modal__tab--active');
+      dom.loginForm.style.display = 'none';
+      dom.registerForm.style.display = 'flex';
+      dom.authModalTitle.textContent = 'Daftar Akun Baru';
+    });
+  }
+
+  // Auth form submits
+  if (dom.loginForm) dom.loginForm.addEventListener('submit', handleLogin);
+  if (dom.registerForm) dom.registerForm.addEventListener('submit', handleRegister);
+  if (dom.claimForm) dom.claimForm.addEventListener('submit', handleClaimDevice);
+
+  // Mode and pump controls
   dom.modeSwitch.addEventListener('change', (e) => {
     dom.modeSwitch._userChanged = true;
     setMode(e.target.checked);
@@ -410,6 +672,7 @@ function bindEvents() {
   const syncAll = () => {
     fetchStatus();
     fetchHistory();
+    fetchDevices();
   };
   window.addEventListener('focus', syncAll);
   document.addEventListener('visibilitychange', () => {
@@ -420,11 +683,15 @@ function bindEvents() {
 async function init() {
   updateClock();
   setInterval(updateClock, 1000);
+  renderAuthUI();
   renderMode(false);
   renderPump(false);
   bindEvents();
+
+  await fetchDevices();
   await fetchStatus();
   await fetchHistory();
+
   setInterval(fetchStatus, CONFIG.POLL_INTERVAL);
   setInterval(fetchHistory, 12000);
   setInterval(keepAlive, CONFIG.KEEPALIVE_INTERVAL);
