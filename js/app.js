@@ -1,6 +1,6 @@
 const CONFIG = {
   API_BASE: '/api',
-  POLL_INTERVAL: 5000,
+  POLL_INTERVAL: 4000,
   MOCK_MODE: false,
   KEEPALIVE_INTERVAL: 4 * 60 * 1000,
 };
@@ -13,6 +13,7 @@ const state = {
   history: [],
   historyFilter: 'all',
   lastFetch: 0,
+  lastTimestamp: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -231,7 +232,7 @@ function renderHistory(data) {
 
 async function fetchStatus() {
   const now = Date.now();
-  if (document.hidden && now - state.lastFetch < 30000) return;
+  if (document.hidden && now - state.lastFetch < 10000) return;
   state.lastFetch = now;
 
   try {
@@ -239,12 +240,20 @@ async function fetchStatus() {
     setConnected(true);
     renderPump(data.pump_on);
     renderMoisture(data.moisture);
+
+    // Sync mode if user on this device is not actively dragging the switch
     if (data.mode && !dom.modeSwitch._userChanged) {
       const isManual = data.mode === 'manual';
       if (dom.modeSwitch.checked !== !isManual) {
         dom.modeSwitch.checked = !isManual;
         renderMode(isManual);
       }
+    }
+
+    // Cross-device sync: If timestamp updated (e.g. from phone or ESP32), refresh history
+    if (data.timestamp && data.timestamp !== state.lastTimestamp) {
+      state.lastTimestamp = data.timestamp;
+      fetchHistory();
     }
   } catch (err) {
     setConnected(false);
@@ -283,16 +292,8 @@ async function setPump(on) {
   try {
     const res = await apiFetch(on ? '/pump/on' : '/pump/off', { method: 'POST' });
     renderPump(on);
-    MOCK.history.unshift({
-      id:        Date.now(),
-      timestamp: new Date().toISOString(),
-      action:    on ? 'ON' : 'OFF',
-      mode:      'manual',
-      moisture:  state.moisture ?? 0,
-      duration:  '—',
-    });
-    renderHistory(MOCK.history);
     showToast(res.message || (on ? 'Pompa dinyalakan' : 'Pompa dimatikan'), 'success');
+    await Promise.all([fetchStatus(), fetchHistory()]);
   } catch (err) {
     showToast('Gagal mengontrol pompa. Coba lagi.', 'error');
     console.error('[PlantCare] Pump control error:', err);
@@ -310,8 +311,11 @@ async function setMode(isAuto) {
       body:   JSON.stringify({ mode: !isAuto ? 'manual' : 'auto' }),
     });
     showToast(`Mode diubah ke: ${!isAuto ? 'Manual' : 'Otomatis'}`, 'info');
+    await fetchStatus();
   } catch (err) {
     console.error('[PlantCare] Mode change error:', err);
+  } finally {
+    setTimeout(() => { dom.modeSwitch._userChanged = false; }, 1500);
   }
 }
 
@@ -403,8 +407,13 @@ function bindEvents() {
     dom.clearHistoryBtn.addEventListener('click', handleClearHistory);
   }
 
+  const syncAll = () => {
+    fetchStatus();
+    fetchHistory();
+  };
+  window.addEventListener('focus', syncAll);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) fetchStatus();
+    if (!document.hidden) syncAll();
   });
 }
 
@@ -417,6 +426,7 @@ async function init() {
   await fetchStatus();
   await fetchHistory();
   setInterval(fetchStatus, CONFIG.POLL_INTERVAL);
+  setInterval(fetchHistory, 12000);
   setInterval(keepAlive, CONFIG.KEEPALIVE_INTERVAL);
 }
 
