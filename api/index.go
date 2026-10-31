@@ -2,15 +2,19 @@ package api
 
 import (
 	"compress/gzip"
+	"crypto/tls"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 )
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -34,6 +38,106 @@ type HistoryEntry struct {
 
 type ModeRequest struct {
 	Mode string `json:"mode"`
+}
+
+// ─── Database Singleton & Migration ──────────────────────────────────────────
+
+var (
+	db     *sql.DB
+	dbOnce sync.Once
+	dbErr  error
+)
+
+func getDB() (*sql.DB, error) {
+	dbOnce.Do(func() {
+		host := os.Getenv("TIDB_HOST")
+		port := os.Getenv("TIDB_PORT")
+		user := os.Getenv("TIDB_USER")
+		pass := os.Getenv("TIDB_PASSWORD")
+		dbName := os.Getenv("TIDB_DB")
+
+		if port == "" {
+			port = "4000"
+		}
+		if dbName == "" {
+			dbName = "test"
+		}
+
+		// Register TLS config required by TiDB Cloud public endpoint.
+		tlsKey := "tidb"
+		if err := mysql.RegisterTLSConfig(tlsKey, &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			ServerName: host,
+		}); err != nil {
+			dbErr = fmt.Errorf("db: register TLS: %w", err)
+			return
+		}
+
+		dsn := fmt.Sprintf(
+			"%s:%s@tcp(%s:%s)/%s?tls=%s&parseTime=true&loc=UTC&timeout=10s&readTimeout=10s&writeTimeout=10s",
+			user, pass, host, port, dbName, tlsKey,
+		)
+
+		conn, err := sql.Open("mysql", dsn)
+		if err != nil {
+			dbErr = fmt.Errorf("db: open: %w", err)
+			return
+		}
+
+		conn.SetMaxOpenConns(5)
+		conn.SetMaxIdleConns(2)
+
+		if err := conn.Ping(); err != nil {
+			dbErr = fmt.Errorf("db: ping: %w", err)
+			return
+		}
+
+		if err := migrate(conn); err != nil {
+			dbErr = fmt.Errorf("db: migrate: %w", err)
+			return
+		}
+
+		db = conn
+	})
+	return db, dbErr
+}
+
+func migrate(conn *sql.DB) error {
+	_, err := conn.Exec(`
+		CREATE TABLE IF NOT EXISTS system_status (
+			id         INT          NOT NULL DEFAULT 1,
+			pump_on    TINYINT(1)   NOT NULL DEFAULT 0,
+			moisture   DOUBLE       NOT NULL DEFAULT 0,
+			mode       VARCHAR(10)  NOT NULL DEFAULT 'auto',
+			threshold  DOUBLE       NOT NULL DEFAULT 50,
+			updated_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+				ON UPDATE CURRENT_TIMESTAMP(3),
+			PRIMARY KEY (id)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Exec(`
+		INSERT IGNORE INTO system_status (id, pump_on, moisture, mode, threshold)
+		VALUES (1, 0, 0, 'auto', 50)
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Exec(`
+		CREATE TABLE IF NOT EXISTS pump_history (
+			id         INT AUTO_INCREMENT PRIMARY KEY,
+			timestamp  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			action     VARCHAR(10)  NOT NULL,
+			mode       VARCHAR(10)  NOT NULL,
+			moisture   DOUBLE       NOT NULL DEFAULT 0,
+			duration   VARCHAR(20)  NOT NULL DEFAULT '—'
+		)
+	`)
+	return err
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
@@ -65,7 +169,7 @@ func cors(next http.HandlerFunc) http.HandlerFunc {
 			origin = "*"
 		}
 		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -95,12 +199,11 @@ func getThreshold() float64 {
 	return 50.0
 }
 
-// dbError writes a 503 and logs when DB is unavailable.
 func dbError(w http.ResponseWriter, err error) {
 	writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "database unavailable", "detail": err.Error()})
 }
 
-// ─── DB helpers ───────────────────────────────────────────────────────────────
+// ─── DB Operations ────────────────────────────────────────────────────────────
 
 func readStatus() (SystemStatus, error) {
 	conn, err := getDB()
@@ -188,7 +291,7 @@ func readHistory() ([]HistoryEntry, error) {
 	return list, rows.Err()
 }
 
-// ─── Handler entry-point ─────────────────────────────────────────────────────
+// ─── Handler Entry-Point (Vercel Export) ───────────────────────────────────────
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
@@ -342,7 +445,6 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	threshold := getThreshold()
 
-	// Read current state.
 	prev, err := readStatus()
 	if err != nil {
 		dbError(w, err)
@@ -354,7 +456,6 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		newMode = payload.Mode
 	}
 
-	// Compute new pump state.
 	newPump := prev.PumpOn
 	if newMode == "auto" && payload.PumpOn == nil {
 		newPump = payload.Moisture < threshold
@@ -376,7 +477,6 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine action label
 	action := strings.ToUpper(strings.TrimSpace(payload.Action))
 	if action != "ON" && action != "OFF" {
 		if newPump {
@@ -386,7 +486,6 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Log history if pump state changed OR if explicit ForceLog
 	if prev.PumpOn != newPump || payload.ForceLog {
 		_ = insertHistory(action, newMode, payload.Moisture)
 	}
