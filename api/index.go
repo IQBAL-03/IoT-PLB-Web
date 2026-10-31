@@ -8,9 +8,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 )
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type SystemStatus struct {
 	PumpOn    bool    `json:"pump_on"`
@@ -33,27 +36,14 @@ type ModeRequest struct {
 	Mode string `json:"mode"`
 }
 
-var (
-	mu     sync.RWMutex
-	status = SystemStatus{
-		PumpOn:    false,
-		Moisture:  0,
-		Mode:      "auto",
-		Threshold: 50,
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-	history []HistoryEntry
-	nextID  = 1
-)
+// ─── Middleware ───────────────────────────────────────────────────────────────
 
 type gzipWriter struct {
 	io.Writer
 	http.ResponseWriter
 }
 
-func (g gzipWriter) Write(b []byte) (int, error) {
-	return g.Writer.Write(b)
-}
+func (g gzipWriter) Write(b []byte) (int, error) { return g.Writer.Write(b) }
 
 func withGzip(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -85,9 +75,7 @@ func cors(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func chain(h http.HandlerFunc) http.HandlerFunc {
-	return cors(withGzip(h))
-}
+func chain(h http.HandlerFunc) http.HandlerFunc { return cors(withGzip(h)) }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -95,6 +83,8 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 func getThreshold() float64 {
 	if envT := os.Getenv("MOISTURE_THRESHOLD"); envT != "" {
@@ -104,6 +94,101 @@ func getThreshold() float64 {
 	}
 	return 50.0
 }
+
+// dbError writes a 503 and logs when DB is unavailable.
+func dbError(w http.ResponseWriter, err error) {
+	writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "database unavailable", "detail": err.Error()})
+}
+
+// ─── DB helpers ───────────────────────────────────────────────────────────────
+
+func readStatus() (SystemStatus, error) {
+	conn, err := getDB()
+	if err != nil {
+		return SystemStatus{}, err
+	}
+	var s SystemStatus
+	var pumpOn int
+	var updatedAt time.Time
+	err = conn.QueryRow(`
+		SELECT pump_on, moisture, mode, threshold, updated_at
+		FROM system_status WHERE id = 1
+	`).Scan(&pumpOn, &s.Moisture, &s.Mode, &s.Threshold, &updatedAt)
+	if err != nil {
+		return s, err
+	}
+	s.PumpOn = pumpOn == 1
+	s.Timestamp = updatedAt.UTC().Format(time.RFC3339)
+	return s, nil
+}
+
+func writePump(on bool) error {
+	conn, err := getDB()
+	if err != nil {
+		return err
+	}
+	pumpVal := 0
+	if on {
+		pumpVal = 1
+	}
+	_, err = conn.Exec(`UPDATE system_status SET pump_on = ?, updated_at = NOW(3) WHERE id = 1`, pumpVal)
+	return err
+}
+
+func writeMode(mode string) error {
+	conn, err := getDB()
+	if err != nil {
+		return err
+	}
+	_, err = conn.Exec(`UPDATE system_status SET mode = ?, updated_at = NOW(3) WHERE id = 1`, mode)
+	return err
+}
+
+func insertHistory(action, mode string, moisture float64) error {
+	conn, err := getDB()
+	if err != nil {
+		return err
+	}
+	_, err = conn.Exec(`
+		INSERT INTO pump_history (action, mode, moisture, duration)
+		VALUES (?, ?, ?, '—')
+	`, action, mode, moisture)
+	return err
+}
+
+func readHistory() ([]HistoryEntry, error) {
+	conn, err := getDB()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := conn.Query(`
+		SELECT id, timestamp, action, mode, moisture, duration
+		FROM pump_history
+		ORDER BY id DESC
+		LIMIT 100
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []HistoryEntry
+	for rows.Next() {
+		var e HistoryEntry
+		var ts time.Time
+		if err := rows.Scan(&e.ID, &ts, &e.Action, &e.Mode, &e.Moisture, &e.Duration); err != nil {
+			return nil, err
+		}
+		e.Timestamp = ts.UTC().Format(time.RFC3339)
+		list = append(list, e)
+	}
+	if list == nil {
+		list = []HistoryEntry{}
+	}
+	return list, rows.Err()
+}
+
+// ─── Handler entry-point ─────────────────────────────────────────────────────
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
@@ -117,9 +202,20 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	mux.ServeHTTP(w, r)
 }
 
+// ─── Handlers ─────────────────────────────────────────────────────────────────
+
 func handlePing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "ts": time.Now().Format(time.RFC3339)})
+	conn, err := getDB()
+	if err != nil {
+		dbError(w, err)
+		return
+	}
+	if err := conn.Ping(); err != nil {
+		dbError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "ts": time.Now().UTC().Format(time.RFC3339)})
 }
 
 func handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -128,9 +224,11 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store, must-revalidate")
-	mu.RLock()
-	s := status
-	mu.RUnlock()
+	s, err := readStatus()
+	if err != nil {
+		dbError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, s)
 }
 
@@ -140,23 +238,12 @@ func handlePumpOn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	mu.Lock()
-	status.PumpOn = true
-	status.Timestamp = time.Now().Format(time.RFC3339)
-	entry := HistoryEntry{
-		ID:        nextID,
-		Timestamp: status.Timestamp,
-		Action:    "ON",
-		Mode:      status.Mode,
-		Moisture:  status.Moisture,
-		Duration:  "—",
+	if err := writePump(true); err != nil {
+		dbError(w, err)
+		return
 	}
-	nextID++
-	history = append([]HistoryEntry{entry}, history...)
-	if len(history) > 100 {
-		history = history[:100]
-	}
-	mu.Unlock()
+	s, _ := readStatus()
+	_ = insertHistory("ON", s.Mode, s.Moisture)
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "true", "message": "Pompa dinyalakan"})
 }
 
@@ -166,23 +253,12 @@ func handlePumpOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	mu.Lock()
-	status.PumpOn = false
-	status.Timestamp = time.Now().Format(time.RFC3339)
-	entry := HistoryEntry{
-		ID:        nextID,
-		Timestamp: status.Timestamp,
-		Action:    "OFF",
-		Mode:      status.Mode,
-		Moisture:  status.Moisture,
-		Duration:  "—",
+	if err := writePump(false); err != nil {
+		dbError(w, err)
+		return
 	}
-	nextID++
-	history = append([]HistoryEntry{entry}, history...)
-	if len(history) > 100 {
-		history = history[:100]
-	}
-	mu.Unlock()
+	s, _ := readStatus()
+	_ = insertHistory("OFF", s.Mode, s.Moisture)
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "true", "message": "Pompa dimatikan"})
 }
 
@@ -197,10 +273,10 @@ func handleMode(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid mode, use 'auto' or 'manual'"})
 		return
 	}
-	mu.Lock()
-	status.Mode = req.Mode
-	status.Timestamp = time.Now().Format(time.RFC3339)
-	mu.Unlock()
+	if err := writeMode(req.Mode); err != nil {
+		dbError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "true", "mode": req.Mode})
 }
 
@@ -210,14 +286,12 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	mu.RLock()
-	h := make([]HistoryEntry, len(history))
-	copy(h, history)
-	mu.RUnlock()
-	if h == nil {
-		h = []HistoryEntry{}
+	list, err := readHistory()
+	if err != nil {
+		dbError(w, err)
+		return
 	}
-	writeJSON(w, http.StatusOK, h)
+	writeJSON(w, http.StatusOK, list)
 }
 
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -226,6 +300,7 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
+
 	type WebhookPayload struct {
 		Moisture float64 `json:"moisture"`
 		PumpOn   *bool   `json:"pump_on,omitempty"`
@@ -236,49 +311,56 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	conn, err := getDB()
+	if err != nil {
+		dbError(w, err)
+		return
+	}
+
 	threshold := getThreshold()
 
-	mu.Lock()
-	prevPump := status.PumpOn
-	status.Moisture = payload.Moisture
-	status.Threshold = threshold
-	status.Timestamp = time.Now().Format(time.RFC3339)
-	if status.Mode == "auto" {
-		status.PumpOn = payload.Moisture < threshold
-	} else if payload.PumpOn != nil {
-		status.PumpOn = *payload.PumpOn
+	// Read current state.
+	prev, err := readStatus()
+	if err != nil {
+		dbError(w, err)
+		return
 	}
-	var newEntry *HistoryEntry
-	if prevPump != status.PumpOn {
+
+	// Compute new pump state.
+	newPump := prev.PumpOn
+	if prev.Mode == "auto" {
+		newPump = payload.Moisture < threshold
+	} else if payload.PumpOn != nil {
+		newPump = *payload.PumpOn
+	}
+
+	pumpVal := 0
+	if newPump {
+		pumpVal = 1
+	}
+	_, err = conn.Exec(`
+		UPDATE system_status
+		SET moisture = ?, threshold = ?, pump_on = ?, updated_at = NOW(3)
+		WHERE id = 1
+	`, payload.Moisture, threshold, pumpVal)
+	if err != nil {
+		dbError(w, err)
+		return
+	}
+
+	// Log history if pump state changed.
+	if prev.PumpOn != newPump {
 		action := "OFF"
-		if status.PumpOn {
+		if newPump {
 			action = "ON"
 		}
-		e := HistoryEntry{
-			ID:        nextID,
-			Timestamp: status.Timestamp,
-			Action:    action,
-			Mode:      status.Mode,
-			Moisture:  status.Moisture,
-			Duration:  "—",
-		}
-		nextID++
-		history = append([]HistoryEntry{e}, history...)
-		if len(history) > 100 {
-			history = history[:100]
-		}
-		newEntry = &e
+		_ = insertHistory(action, prev.Mode, payload.Moisture)
 	}
-	mu.Unlock()
 
-	resp := map[string]any{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":        true,
 		"moisture":  payload.Moisture,
-		"pump_on":   status.PumpOn,
+		"pump_on":   newPump,
 		"threshold": threshold,
-	}
-	if newEntry != nil {
-		resp["history_entry"] = newEntry
-	}
-	writeJSON(w, http.StatusOK, resp)
+	})
 }

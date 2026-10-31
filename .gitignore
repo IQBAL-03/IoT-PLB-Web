@@ -1,2 +1,9 @@
-\iot.io
-\planning.md
+# Sensitive & Credentials
+pw-db.md
+.env
+.env.*
+*.env
+
+# Local notes / hardware
+iot.io
+planning.md
