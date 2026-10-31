@@ -1,7 +1,7 @@
 const CONFIG = {
   API_BASE: '/api',
   POLL_INTERVAL: 5000,
-  MOCK_MODE: true,
+  MOCK_MODE: false,
   KEEPALIVE_INTERVAL: 4 * 60 * 1000,
 };
 
@@ -47,26 +47,25 @@ const dom = {
   historyBody:        $('historyBody'),
   historyEmpty:       $('historyEmpty'),
   historyFilter:      $('historyFilter'),
+  clearHistoryBtn:    $('clearHistoryBtn'),
+  testForm:           $('testForm'),
+  testMoisture:       $('testMoisture'),
+  testPump:           $('testPump'),
+  testMode:           $('testMode'),
+  testSendBtn:        $('testSendBtn'),
   toastContainer:     $('toastContainer'),
 };
 
 const MOCK = {
   status: () => ({
     pump_on:   state.pumpOn,
-    moisture:  Math.floor(Math.random() * 30 + 40),
+    moisture:  state.moisture ?? 45,
     mode:      state.isManual ? 'manual' : 'auto',
     threshold: 50,
     timestamp: new Date().toISOString(),
   }),
 
-  history: [
-    { id: 1, timestamp: '2026-10-30T14:30:00+07:00', action: 'ON',  mode: 'auto',   moisture: 28, duration: '4 menit' },
-    { id: 2, timestamp: '2026-10-30T12:15:00+07:00', action: 'OFF', mode: 'auto',   moisture: 65, duration: '—' },
-    { id: 3, timestamp: '2026-10-30T10:00:00+07:00', action: 'ON',  mode: 'manual', moisture: 45, duration: '2 menit' },
-    { id: 4, timestamp: '2026-10-30T08:45:00+07:00', action: 'OFF', mode: 'manual', moisture: 71, duration: '—' },
-    { id: 5, timestamp: '2026-10-29T16:00:00+07:00', action: 'ON',  mode: 'auto',   moisture: 22, duration: '6 menit' },
-    { id: 6, timestamp: '2026-10-29T12:30:00+07:00', action: 'OFF', mode: 'auto',   moisture: 60, duration: '—' },
-  ],
+  history: [],
 };
 
 const controller = new AbortController();
@@ -82,7 +81,10 @@ async function apiFetch(endpoint, options = {}) {
     signal: AbortSignal.timeout(8000),
     ...options,
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.detail || errorBody.error || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 
@@ -90,10 +92,31 @@ async function mockFetch(endpoint, options) {
   await delay(200 + Math.random() * 100);
   if (endpoint === '/status')   return MOCK.status();
   if (endpoint === '/history')  return MOCK.history;
+  if (endpoint === '/history/clear') { MOCK.history = []; return { ok: true }; }
   if (endpoint === '/ping')     return { status: 'ok' };
   if (endpoint === '/pump/on')  { state.pumpOn = true;  return { ok: true, message: 'Pompa dinyalakan' }; }
   if (endpoint === '/pump/off') { state.pumpOn = false; return { ok: true, message: 'Pompa dimatikan' }; }
   if (endpoint === '/mode')     return { ok: true };
+  if (endpoint === '/webhook') {
+    let body = {};
+    if (options && options.body) {
+      try { body = JSON.parse(options.body); } catch(e) {}
+    }
+    const moist = body.moisture ?? 40;
+    const action = body.action ?? (body.pump_on ? 'ON' : 'OFF');
+    const mode = body.mode ?? 'auto';
+    state.moisture = moist;
+    state.pumpOn = body.pump_on ?? (action === 'ON');
+    MOCK.history.unshift({
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      action: action,
+      mode: mode,
+      moisture: moist,
+      duration: '—'
+    });
+    return { ok: true, moisture: moist, pump_on: state.pumpOn };
+  }
   throw new Error('Unknown endpoint');
 }
 
@@ -314,6 +337,52 @@ async function handleRefresh() {
   showToast('Data diperbarui', 'success');
 }
 
+async function handleTestSend(e) {
+  e.preventDefault();
+  const moisture = parseFloat(dom.testMoisture.value) || 0;
+  const action = dom.testPump.value;
+  const pumpOn = action === 'ON';
+  const mode = dom.testMode.value;
+
+  dom.testSendBtn.disabled = true;
+  const originalHTML = dom.testSendBtn.innerHTML;
+  dom.testSendBtn.innerHTML = `Mengirim...`;
+
+  try {
+    const res = await apiFetch('/webhook', {
+      method: 'POST',
+      body: JSON.stringify({
+        moisture: moisture,
+        pump_on: pumpOn,
+        action: action,
+        mode: mode,
+        force_log: true,
+      }),
+    });
+
+    showToast(`Data terkirim ke DB! Kelembapan: ${moisture}%, Pompa: ${action}`, 'success');
+    await Promise.all([fetchStatus(), fetchHistory()]);
+  } catch (err) {
+    showToast(`Gagal mengirim ke DB: ${err.message}`, 'error');
+    console.error('[PlantCare] Test send error:', err);
+  } finally {
+    dom.testSendBtn.innerHTML = originalHTML;
+    dom.testSendBtn.disabled = false;
+  }
+}
+
+async function handleClearHistory() {
+  if (!confirm('Apakah Anda yakin ingin menghapus seluruh riwayat penyiraman di database?')) return;
+  try {
+    await apiFetch('/history/clear', { method: 'POST' });
+    showToast('Riwayat berhasil dibersihkan dari DB', 'info');
+    await fetchHistory();
+  } catch (err) {
+    showToast(`Gagal membersihkan riwayat: ${err.message}`, 'error');
+    console.error('[PlantCare] Clear history error:', err);
+  }
+}
+
 function bindEvents() {
   dom.modeSwitch.addEventListener('change', (e) => {
     dom.modeSwitch._userChanged = true;
@@ -326,6 +395,13 @@ function bindEvents() {
     state.historyFilter = e.target.value;
     renderHistory(state.history);
   });
+
+  if (dom.testForm) {
+    dom.testForm.addEventListener('submit', handleTestSend);
+  }
+  if (dom.clearHistoryBtn) {
+    dom.clearHistoryBtn.addEventListener('click', handleClearHistory);
+  }
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) fetchStatus();

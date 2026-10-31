@@ -106,7 +106,7 @@ func migrate(conn *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS pump_history (
 			id         INT AUTO_INCREMENT PRIMARY KEY,
 			timestamp  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-			action     VARCHAR(3)   NOT NULL,
+			action     VARCHAR(10)  NOT NULL,
 			mode       VARCHAR(10)  NOT NULL,
 			moisture   DOUBLE       NOT NULL DEFAULT 0,
 			duration   VARCHAR(20)  NOT NULL DEFAULT '—'

@@ -192,13 +192,14 @@ func readHistory() ([]HistoryEntry, error) {
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/status",   chain(handleStatus))
-	mux.HandleFunc("/api/pump/on",  chain(handlePumpOn))
+	mux.HandleFunc("/api/status", chain(handleStatus))
+	mux.HandleFunc("/api/pump/on", chain(handlePumpOn))
 	mux.HandleFunc("/api/pump/off", chain(handlePumpOff))
-	mux.HandleFunc("/api/mode",     chain(handleMode))
-	mux.HandleFunc("/api/history",  chain(handleHistory))
-	mux.HandleFunc("/api/webhook",  chain(handleWebhook))
-	mux.HandleFunc("/api/ping",     chain(handlePing))
+	mux.HandleFunc("/api/mode", chain(handleMode))
+	mux.HandleFunc("/api/history", chain(handleHistory))
+	mux.HandleFunc("/api/history/clear", chain(handleClearHistory))
+	mux.HandleFunc("/api/webhook", chain(handleWebhook))
+	mux.HandleFunc("/api/ping", chain(handlePing))
 	mux.ServeHTTP(w, r)
 }
 
@@ -294,6 +295,25 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, list)
 }
 
+func handleClearHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	conn, err := getDB()
+	if err != nil {
+		dbError(w, err)
+		return
+	}
+	_, err = conn.Exec("DELETE FROM pump_history")
+	if err != nil {
+		dbError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "true", "message": "Riwayat berhasil dibersihkan"})
+}
+
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
@@ -304,6 +324,9 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	type WebhookPayload struct {
 		Moisture float64 `json:"moisture"`
 		PumpOn   *bool   `json:"pump_on,omitempty"`
+		Action   string  `json:"action,omitempty"`
+		Mode     string  `json:"mode,omitempty"`
+		ForceLog bool    `json:"force_log,omitempty"`
 	}
 	var payload WebhookPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -326,9 +349,14 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	newMode := prev.Mode
+	if payload.Mode == "auto" || payload.Mode == "manual" {
+		newMode = payload.Mode
+	}
+
 	// Compute new pump state.
 	newPump := prev.PumpOn
-	if prev.Mode == "auto" {
+	if newMode == "auto" && payload.PumpOn == nil {
 		newPump = payload.Moisture < threshold
 	} else if payload.PumpOn != nil {
 		newPump = *payload.PumpOn
@@ -340,27 +368,34 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = conn.Exec(`
 		UPDATE system_status
-		SET moisture = ?, threshold = ?, pump_on = ?, updated_at = NOW(3)
+		SET moisture = ?, threshold = ?, pump_on = ?, mode = ?, updated_at = NOW(3)
 		WHERE id = 1
-	`, payload.Moisture, threshold, pumpVal)
+	`, payload.Moisture, threshold, pumpVal, newMode)
 	if err != nil {
 		dbError(w, err)
 		return
 	}
 
-	// Log history if pump state changed.
-	if prev.PumpOn != newPump {
-		action := "OFF"
+	// Determine action label
+	action := strings.ToUpper(strings.TrimSpace(payload.Action))
+	if action != "ON" && action != "OFF" {
 		if newPump {
 			action = "ON"
+		} else {
+			action = "OFF"
 		}
-		_ = insertHistory(action, prev.Mode, payload.Moisture)
+	}
+
+	// Log history if pump state changed OR if explicit ForceLog
+	if prev.PumpOn != newPump || payload.ForceLog {
+		_ = insertHistory(action, newMode, payload.Moisture)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":        true,
 		"moisture":  payload.Moisture,
 		"pump_on":   newPump,
+		"mode":      newMode,
 		"threshold": threshold,
 	})
 }
