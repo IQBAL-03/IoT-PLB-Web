@@ -82,11 +82,15 @@ const dom = {
   loginEmail:         $('loginEmail'),
   loginPassword:      $('loginPassword'),
   loginSubmitBtn:     $('loginSubmitBtn'),
+  toggleLoginPassword:$('toggleLoginPassword'),
   registerForm:       $('registerForm'),
   regName:            $('regName'),
   regEmail:           $('regEmail'),
   regPassword:        $('regPassword'),
   regSubmitBtn:       $('regSubmitBtn'),
+  toggleRegPassword:  $('toggleRegPassword'),
+  googleAuthBtn:      $('googleAuthBtn'),
+  googleBtnText:      $('googleBtnText'),
 
   // Claim Modal
   claimModal:         $('claimModal'),
@@ -405,6 +409,142 @@ async function handleRegister(e) {
   }
 }
 
+function setupPasswordToggle(buttonId, inputId) {
+  const btn = $(buttonId);
+  const input = $(inputId);
+  if (!btn || !input) return;
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const isPass = input.type === 'password';
+    input.type = isPass ? 'text' : 'password';
+    const openEye = btn.querySelector('.eye-open');
+    const closedEye = btn.querySelector('.eye-closed');
+    if (openEye && closedEye) {
+      openEye.style.display = isPass ? 'none' : 'block';
+      closedEye.style.display = isPass ? 'block' : 'none';
+    }
+    btn.setAttribute('title', isPass ? 'Sembunyikan password' : 'Lihat password');
+  });
+}
+
+const GOOGLE_CLIENT_ID = '97161960012-snb6l6t80ddbfkjfcdp7nmjsc11kcg0m.apps.googleusercontent.com';
+let googleTokenClient = null;
+
+function initGoogleSignIn() {
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return;
+
+  try {
+    googleTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'email profile openid',
+      callback: async (tokenResponse) => {
+        if (tokenResponse && tokenResponse.error) {
+          showToast(`Google login: ${tokenResponse.error_description || tokenResponse.error}`, 'error');
+          return;
+        }
+        if (tokenResponse && tokenResponse.access_token) {
+          await processGoogleToken(tokenResponse.access_token);
+        }
+      },
+      error_callback: (nonOAuthError) => {
+        console.warn('[PlantCare] Google OAuth non-OAuth error:', nonOAuthError);
+        showToast(`Google login error: ${nonOAuthError.type || 'Inisialisasi popup gagal'}`, 'error');
+      },
+    });
+  } catch (err) {
+    console.warn('[PlantCare] Google OAuth init error:', err);
+  }
+}
+
+async function processGoogleToken(accessToken) {
+  dom.googleAuthBtn.disabled = true;
+  const originalText = dom.googleBtnText.textContent;
+  dom.googleBtnText.textContent = 'Memverifikasi Google...';
+
+  try {
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!userInfoRes.ok) throw new Error('Gagal mengambil data akun Google');
+    const googleUser = await userInfoRes.json();
+
+    const res = await apiFetch('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: googleUser.email,
+        name: googleUser.name || googleUser.given_name || googleUser.email.split('@')[0],
+      }),
+    });
+
+    state.token = res.token;
+    state.user = res.user;
+    localStorage.setItem('plantcare_token', res.token);
+    localStorage.setItem('plantcare_user', JSON.stringify(res.user));
+
+    renderAuthUI();
+    closeAuthModal();
+    showToast(`Berhasil masuk sebagai ${res.user.name}!`, 'success');
+    await fetchDevices();
+    await Promise.all([fetchStatus(), fetchHistory()]);
+  } catch (err) {
+    showToast(`Google login gagal: ${err.message}`, 'error');
+    console.error(err);
+  } finally {
+    dom.googleAuthBtn.disabled = false;
+    dom.googleBtnText.textContent = originalText;
+  }
+}
+
+async function handleGoogleAuth() {
+  if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+    if (!googleTokenClient) {
+      initGoogleSignIn();
+    }
+    if (googleTokenClient) {
+      googleTokenClient.requestAccessToken({ prompt: 'select_account' });
+      return;
+    }
+  }
+
+  // Fallback prompt jika script Google diblokir adblocker
+  const inputEmail = prompt(
+    'Masuk dengan Akun Google:\nMasukkan email Google Anda (contoh: user@gmail.com):',
+    state.user ? state.user.email : 'user@gmail.com'
+  );
+  if (!inputEmail || !inputEmail.trim()) return;
+
+  const email = inputEmail.trim();
+  const name = email.split('@')[0];
+
+  dom.googleAuthBtn.disabled = true;
+  const originalText = dom.googleBtnText.textContent;
+  dom.googleBtnText.textContent = 'Menghubungkan ke Google...';
+
+  try {
+    const res = await apiFetch('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ email, name }),
+    });
+
+    state.token = res.token;
+    state.user = res.user;
+    localStorage.setItem('plantcare_token', res.token);
+    localStorage.setItem('plantcare_user', JSON.stringify(res.user));
+
+    renderAuthUI();
+    closeAuthModal();
+    showToast(`Berhasil masuk dengan Google (${res.user.email})!`, 'success');
+    await fetchDevices();
+    await Promise.all([fetchStatus(), fetchHistory()]);
+  } catch (err) {
+    showToast(`Google login gagal: ${err.message}`, 'error');
+  } finally {
+    dom.googleAuthBtn.disabled = false;
+    dom.googleBtnText.textContent = originalText;
+  }
+}
+
 function handleLogout() {
   state.token = null;
   state.user = null;
@@ -634,6 +774,7 @@ function bindEvents() {
       dom.loginForm.style.display = 'flex';
       dom.registerForm.style.display = 'none';
       dom.authModalTitle.textContent = 'Masuk ke Akun';
+      if (dom.googleBtnText) dom.googleBtnText.textContent = 'Masuk dengan Google';
     });
     dom.tabRegister.addEventListener('click', () => {
       dom.tabRegister.classList.add('modal__tab--active');
@@ -641,7 +782,17 @@ function bindEvents() {
       dom.loginForm.style.display = 'none';
       dom.registerForm.style.display = 'flex';
       dom.authModalTitle.textContent = 'Daftar Akun Baru';
+      if (dom.googleBtnText) dom.googleBtnText.textContent = 'Daftar dengan Google';
     });
+  }
+
+  // Password visibility toggles
+  setupPasswordToggle('toggleLoginPassword', 'loginPassword');
+  setupPasswordToggle('toggleRegPassword', 'regPassword');
+
+  // Google Sign-In
+  if (dom.googleAuthBtn) {
+    dom.googleAuthBtn.addEventListener('click', handleGoogleAuth);
   }
 
   // Auth form submits
@@ -695,6 +846,13 @@ async function init() {
   setInterval(fetchStatus, CONFIG.POLL_INTERVAL);
   setInterval(fetchHistory, 12000);
   setInterval(keepAlive, CONFIG.KEEPALIVE_INTERVAL);
+
+  // Initialize Google Sign-In when ready
+  if (typeof google !== 'undefined' && google.accounts) {
+    initGoogleSignIn();
+  } else {
+    window.addEventListener('load', initGoogleSignIn);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

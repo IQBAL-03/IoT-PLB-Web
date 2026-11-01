@@ -464,6 +464,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	// Auth Endpoints
 	mux.HandleFunc("/api/auth/register", chain(handleAuthRegister))
 	mux.HandleFunc("/api/auth/login",    chain(handleAuthLogin))
+	mux.HandleFunc("/api/auth/google",   chain(handleAuthGoogle))
 	mux.HandleFunc("/api/auth/me",       chain(handleAuthMe))
 
 	// Device Endpoints
@@ -570,6 +571,64 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			"id":    uid,
 			"name":  name,
 			"email": req.Email,
+		},
+	})
+}
+
+func handleAuthGoogle(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	type GoogleAuthReq struct {
+		Email string `json:"email"`
+		Name  string `json:"name"`
+	}
+	var req GoogleAuthReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Email akun Google tidak valid."})
+		return
+	}
+
+	conn, err := getDB()
+	if err != nil {
+		dbError(w, err)
+		return
+	}
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		parts := strings.Split(email, "@")
+		name = parts[0]
+	}
+
+	var uid int
+	err = conn.QueryRow("SELECT id FROM users WHERE email = ? LIMIT 1", email).Scan(&uid)
+	if err == sql.ErrNoRows {
+		res, err := conn.Exec(`
+			INSERT INTO users (name, email, password_hash)
+			VALUES (?, ?, ?)
+		`, name, email, hashPassword("google_oauth_authorized"))
+		if err != nil {
+			dbError(w, err)
+			return
+		}
+		newID, _ := res.LastInsertId()
+		uid = int(newID)
+	} else if err != nil {
+		dbError(w, err)
+		return
+	}
+
+	token, _ := createJWT(uid, email, name)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":    true,
+		"token": token,
+		"user": map[string]any{
+			"id":    uid,
+			"name":  name,
+			"email": email,
 		},
 	})
 }

@@ -3,7 +3,13 @@ pw-db.md
 .env
 .env.*
 *.env
+client_secret*.json
+*.client_secret.json
 
 # Local notes / hardware
 iot.io
 planning.md
+
+# Local assets / screenshots
+image.png
+*.local.png
