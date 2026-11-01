@@ -440,6 +440,8 @@ function initGoogleSignIn() {
       scope: 'email profile openid',
       callback: async (tokenResponse) => {
         if (tokenResponse && tokenResponse.error) {
+          // Abaikan jika user membatalkan (access_denied)
+          if (tokenResponse.error === 'access_denied') return;
           showToast(`Google login: ${tokenResponse.error_description || tokenResponse.error}`, 'error');
           return;
         }
@@ -448,7 +450,16 @@ function initGoogleSignIn() {
         }
       },
       error_callback: (nonOAuthError) => {
-        console.warn('[PlantCare] Google OAuth non-OAuth error:', nonOAuthError);
+        console.warn('[PlantCare] Google OAuth:', nonOAuthError);
+        // Jika user sengaja menutup popup / membatalkan login, jangan munculkan notif error
+        if (nonOAuthError && (nonOAuthError.type === 'popup_closed' || nonOAuthError.type === 'popup_closed_by_user')) {
+          return;
+        }
+        // Hanya beri tahu jika diblokir oleh popup blocker browser
+        if (nonOAuthError && nonOAuthError.type === 'popup_blocked_by_browser') {
+          showToast('Popup Google diblokir browser. Mohon izinkan popup untuk web ini.', 'warning');
+          return;
+        }
         showToast(`Google login error: ${nonOAuthError.type || 'Inisialisasi popup gagal'}`, 'error');
       },
     });
