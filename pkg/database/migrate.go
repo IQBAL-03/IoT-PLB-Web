@@ -49,7 +49,8 @@ func Migrate(conn *sql.DB) error {
 			id          INT          NOT NULL DEFAULT 1,
 			device_id   VARCHAR(50)  NOT NULL DEFAULT 'DEV-PLB-001',
 			pump_on     TINYINT(1)   NOT NULL DEFAULT 0,
-			moisture    DOUBLE       NOT NULL DEFAULT 0,
+			moisture    DOUBLE       DEFAULT NULL,
+			has_data    TINYINT(1)   NOT NULL DEFAULT 0,
 			mode        VARCHAR(10)  NOT NULL DEFAULT 'auto',
 			threshold   DOUBLE       NOT NULL DEFAULT 50,
 			updated_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -63,11 +64,23 @@ func Migrate(conn *sql.DB) error {
 
 	// Schema upgrades for existing installations
 	addColumnIfNotExists(conn, "system_status", "device_id", "VARCHAR(50) NOT NULL DEFAULT 'DEV-PLB-001'")
+	addColumnIfNotExists(conn, "system_status", "has_data", "TINYINT(1) NOT NULL DEFAULT 0")
 	addUniqueIndexIfNotExists(conn, "system_status", "uq_dev", "device_id")
 
+	// Allow NULL for moisture column
+	_, _ = conn.Exec("ALTER TABLE system_status MODIFY COLUMN moisture DOUBLE DEFAULT NULL")
+
+	// Insert initial row with zero/null defaults if missing
 	_, _ = conn.Exec(`
-		INSERT IGNORE INTO system_status (id, device_id, pump_on, moisture, mode, threshold)
-		VALUES (1, 'DEV-PLB-001', 0, 0, 'auto', 50)
+		INSERT IGNORE INTO system_status (id, device_id, pump_on, moisture, has_data, mode, threshold)
+		VALUES (1, 'DEV-PLB-001', 0, NULL, 0, 'auto', 50)
+	`)
+
+	// Reset default unit to standby state awaiting live IoT telemetry
+	_, _ = conn.Exec(`
+		UPDATE system_status
+		SET pump_on = 0, moisture = NULL, has_data = 0
+		WHERE has_data = 0
 	`)
 
 	// 4. Pump History Table
@@ -114,4 +127,3 @@ func addUniqueIndexIfNotExists(conn *sql.DB, table, indexName, colName string) {
 		_, _ = conn.Exec(fmt.Sprintf("ALTER TABLE %s ADD UNIQUE KEY %s (%s)", table, indexName, colName))
 	}
 }
-

@@ -4,11 +4,11 @@
 
 import { $ } from './dom.js';
 
-const icons = {
-  success: '✅',
-  error:   '❌',
-  info:    'ℹ️',
-  warning: '⚠️',
+const badges = {
+  success: '[OK]',
+  error:   '[ERR]',
+  info:    '[INFO]',
+  warning: '[WARN]',
 };
 
 /**
@@ -23,7 +23,7 @@ export function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast toast--${type}`;
   toast.setAttribute('role', 'alert');
-  toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span> <span>${message}</span>`;
+  toast.innerHTML = `<strong>${badges[type] || '[INFO]'}</strong> <span>${message}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
@@ -31,4 +31,3 @@ export function showToast(message, type = 'info') {
     toast.addEventListener('animationend', () => toast.remove(), { once: true });
   }, 3500);
 }
-

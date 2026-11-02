@@ -25,16 +25,36 @@ export const pumpView = {
     };
   },
 
-  renderPump(on) {
+  /**
+   * Renders pump card state and active glowing indicators.
+   * If unit is unlinked or IoT is offline, displays default OFF standby state.
+   * @param {boolean} on
+   * @param {boolean} [isOnline=true]
+   * @param {boolean} [isLinked=true]
+   */
+  renderPump(on, isOnline = true, isLinked = true) {
     const el = this.elements;
     if (!el.pumpCard) return;
 
+    const isPumpActive = Boolean(on && isOnline && isLinked);
+
     el.pumpCard.classList.remove('pump-on', 'pump-off');
-    el.pumpCard.classList.add(on ? 'pump-on' : 'pump-off');
+    el.pumpCard.classList.add(isPumpActive ? 'pump-on' : 'pump-off');
     el.pumpIndicator.classList.remove('pump-on', 'pump-off');
-    el.pumpIndicator.classList.add(on ? 'pump-on' : 'pump-off');
-    el.pumpState.textContent  = on ? 'AKTIF' : 'MATI';
-    el.pumpDetail.textContent = on ? 'Pompa sedang menyiram tanaman' : 'Pompa dalam keadaan standby';
+    el.pumpIndicator.classList.add(isPumpActive ? 'pump-on' : 'pump-off');
+
+    if (!isLinked) {
+      el.pumpState.textContent = 'MATI';
+      el.pumpDetail.textContent = 'Unit belum dihubungkan ke akun';
+    } else if (!isOnline) {
+      el.pumpState.textContent = 'MATI';
+      el.pumpDetail.textContent = 'Perangkat IoT tidak terdeteksi (Offline)';
+    } else {
+      el.pumpState.textContent  = isPumpActive ? 'AKTIF' : 'MATI';
+      el.pumpDetail.textContent = isPumpActive
+        ? 'Pompa sedang menyiram tanaman'
+        : 'Pompa dalam keadaan standby';
+    }
   },
 
   renderMode(isManual) {
@@ -78,8 +98,7 @@ export const pumpView = {
       `;
     } else {
       if (btn._originalHTML) btn.innerHTML = btn._originalHTML;
-      btn.disabled = !$('modeSwitch')?.checked === false; // disabled if auto
+      btn.disabled = $('modeSwitch')?.checked === true;
     }
   },
 };
-

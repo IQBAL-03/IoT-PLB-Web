@@ -36,7 +36,7 @@
       <div class="header__center">
         <div class="unit-selector-wrap" title="Pilih unit tanaman">
           <select id="deviceSelector" class="select select--device" aria-label="Pilih Unit Tanaman">
-            <option value="DEV-PLB-001">🌿 Unit Utama</option>
+            <option value="DEV-PLB-001">Unit Utama</option>
           </select>
           <button class="btn btn--ghost btn--xs" id="addDeviceBtn" title="Hubungkan unit baru">+ Unit</button>
         </div>
@@ -53,7 +53,7 @@
       <!-- Far Right: User Auth Area -->
       <div class="header__right">
         <div id="userAuthArea">
-          <button class="btn btn--ghost btn--xs" id="authBtn">👤 Masuk</button>
+          <button class="btn btn--ghost btn--xs" id="authBtn">Masuk</button>
         </div>
       </div>
     </div>
@@ -95,8 +95,8 @@
                   <div class="pump-status__dot" id="pumpDot"></div>
                 </div>
                 <div class="pump-status__info">
-                  <span class="pump-status__state" id="pumpState">MEMUAT...</span>
-                  <span class="pump-status__detail" id="pumpDetail">Mengambil data...</span>
+                  <span class="pump-status__state" id="pumpState">MATI</span>
+                  <span class="pump-status__detail" id="pumpDetail">Pompa dalam keadaan standby</span>
                 </div>
               </div>
             </div>
@@ -127,7 +127,7 @@
                   </div>
                 </div>
                 <div class="moisture-gauge__meta">
-                  <span class="moisture-gauge__status" id="moistureStatus">Memuat data...</span>
+                  <span class="moisture-gauge__status" id="moistureStatus">—</span>
                   <div class="moisture-gauge__bar-wrap">
                     <div class="moisture-gauge__bar" id="moistureBar"></div>
                   </div>
@@ -212,14 +212,14 @@
           <form id="testForm" class="test-form">
             <div class="test-form__group">
               <label for="testMoisture" class="test-form__label">Kelembapan Tanah (%)</label>
-              <input type="number" id="testMoisture" class="test-form__input" min="0" max="100" value="38" required />
+              <input type="number" id="testMoisture" class="test-form__input" min="0" max="100" placeholder="Contoh: 45" required />
             </div>
 
             <div class="test-form__group">
               <label for="testPump" class="test-form__label">Status Pompa</label>
               <select id="testPump" class="select test-form__select">
+                <option value="OFF" selected>OFF (Standby)</option>
                 <option value="ON">ON (Menyiram)</option>
-                <option value="OFF">OFF (Standby)</option>
               </select>
             </div>
 
@@ -289,7 +289,7 @@
           </div>
 
           <div class="empty-state" id="historyEmpty" style="display:none">
-            <div class="empty-state__icon">🌱</div>
+            <div class="empty-state__icon">—</div>
             <p class="empty-state__text">Belum ada riwayat penyiraman</p>
           </div>
         </div>

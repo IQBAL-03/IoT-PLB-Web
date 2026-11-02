@@ -72,7 +72,7 @@ func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {
 
 	threshold := h.cfg.MoistureThreshold
 
-	prev, err := h.controlRepo.ReadStatus(devID)
+	prev, err := h.controlRepo.ReadStatus(devID, nil)
 	if err != nil {
 		response.DBError(w, err)
 		return
@@ -96,13 +96,14 @@ func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.db.Exec(`
-		INSERT INTO system_status (device_id, moisture, threshold, pump_on, mode, updated_at)
-		VALUES (?, ?, ?, ?, ?, NOW(3))
+		INSERT INTO system_status (device_id, moisture, threshold, pump_on, mode, has_data, updated_at)
+		VALUES (?, ?, ?, ?, ?, 1, NOW(3))
 		ON DUPLICATE KEY UPDATE
 			moisture = VALUES(moisture),
 			threshold = VALUES(threshold),
 			pump_on = VALUES(pump_on),
 			mode = VALUES(mode),
+			has_data = 1,
 			updated_at = NOW(3)
 	`, devID, payload.Moisture, threshold, pumpVal, newMode)
 	if err != nil {

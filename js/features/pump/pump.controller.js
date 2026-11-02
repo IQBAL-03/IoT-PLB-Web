@@ -11,7 +11,7 @@ import { pumpView } from './pump.view.js';
 export const pumpController = {
   init() {
     pumpView.renderMode(false);
-    pumpView.renderPump(false);
+    pumpView.renderPump(false, false, false);
     this.bindEvents();
   },
 

@@ -8,6 +8,7 @@ import { authController } from './features/auth/auth.controller.js';
 import { authView } from './features/auth/auth.view.js';
 import { deviceController } from './features/devices/device.controller.js';
 import { pumpController } from './features/pump/pump.controller.js';
+import { moistureView } from './features/moisture/moisture.view.js';
 import { historyController } from './features/history/history.controller.js';
 import { simulatorController } from './features/simulator/simulator.controller.js';
 import { telemetryController } from './features/telemetry/telemetry.controller.js';
@@ -17,6 +18,9 @@ async function bootstrap() {
   eventBus.on('auth:openModal', () => {
     authView.openModal();
   });
+
+  // Set default uninitialized presentation state
+  moistureView.renderMoisture(null, false, false);
 
   // Initialize all feature controllers
   authController.init();

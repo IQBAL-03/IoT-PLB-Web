@@ -7,6 +7,7 @@ import (
 
 	"plantcare-iot/pkg/config"
 	"plantcare-iot/pkg/feature/history"
+	"plantcare-iot/pkg/middleware"
 	"plantcare-iot/pkg/model"
 	"plantcare-iot/pkg/response"
 )
@@ -36,7 +37,13 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, must-revalidate")
 	devID := response.ResolveDeviceID(r, h.cfg.DefaultDeviceID)
 
-	s, err := h.repo.ReadStatus(devID)
+	claims := middleware.GetUserFromRequest(r, h.cfg.JWTSecret)
+	var userID *int
+	if claims != nil {
+		userID = &claims.UserID
+	}
+
+	s, err := h.repo.ReadStatus(devID, userID)
 	if err != nil {
 		response.DBError(w, err)
 		return
@@ -59,13 +66,23 @@ func (h *Handler) PumpOn(w http.ResponseWriter, r *http.Request) {
 		devID = response.ResolveDeviceID(r, h.cfg.DefaultDeviceID)
 	}
 
+	claims := middleware.GetUserFromRequest(r, h.cfg.JWTSecret)
+	var userID *int
+	if claims != nil {
+		userID = &claims.UserID
+	}
+
 	if err := h.repo.WritePump(devID, true); err != nil {
 		response.DBError(w, err)
 		return
 	}
 
-	s, _ := h.repo.ReadStatus(devID)
-	_ = h.historyRepo.Insert(devID, "ON", s.Mode, s.Moisture)
+	s, _ := h.repo.ReadStatus(devID, userID)
+	moistVal := 0.0
+	if s.Moisture != nil {
+		moistVal = *s.Moisture
+	}
+	_ = h.historyRepo.Insert(devID, "ON", s.Mode, moistVal)
 
 	response.JSON(w, http.StatusOK, map[string]string{
 		"ok":        "true",
@@ -89,13 +106,23 @@ func (h *Handler) PumpOff(w http.ResponseWriter, r *http.Request) {
 		devID = response.ResolveDeviceID(r, h.cfg.DefaultDeviceID)
 	}
 
+	claims := middleware.GetUserFromRequest(r, h.cfg.JWTSecret)
+	var userID *int
+	if claims != nil {
+		userID = &claims.UserID
+	}
+
 	if err := h.repo.WritePump(devID, false); err != nil {
 		response.DBError(w, err)
 		return
 	}
 
-	s, _ := h.repo.ReadStatus(devID)
-	_ = h.historyRepo.Insert(devID, "OFF", s.Mode, s.Moisture)
+	s, _ := h.repo.ReadStatus(devID, userID)
+	moistVal := 0.0
+	if s.Moisture != nil {
+		moistVal = *s.Moisture
+	}
+	_ = h.historyRepo.Insert(devID, "OFF", s.Mode, moistVal)
 
 	response.JSON(w, http.StatusOK, map[string]string{
 		"ok":        "true",
@@ -134,4 +161,3 @@ func (h *Handler) Mode(w http.ResponseWriter, r *http.Request) {
 		"device_id": devID,
 	})
 }
-

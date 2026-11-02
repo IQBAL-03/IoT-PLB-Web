@@ -41,7 +41,7 @@ export const authView = {
     if (user) {
       area.innerHTML = `
         <div class="user-badge">
-          <span>👤 ${user.name}</span>
+          <span>${user.name}</span>
           <button class="user-badge__btn" id="logoutBtn" title="Keluar akun">Keluar</button>
         </div>
       `;
@@ -49,7 +49,7 @@ export const authView = {
       if (logoutBtn) logoutBtn.addEventListener('click', onLogout);
     } else {
       area.innerHTML = `
-        <button class="btn btn--ghost btn--xs" id="authBtn">👤 Masuk</button>
+        <button class="btn btn--ghost btn--xs" id="authBtn">Masuk</button>
       `;
       const authBtn = $('authBtn');
       if (authBtn) authBtn.addEventListener('click', onOpenModal);

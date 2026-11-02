@@ -15,13 +15,45 @@ export const moistureView = {
   },
 
   /**
-   * Updates soil moisture gauge, bar width, and status label according to moisture level.
+   * Updates soil moisture gauge, bar width, and status label.
+   * If unit is unlinked or IoT is offline, displays a dash without speculative data.
    * @param {number|null} pct
+   * @param {boolean} [isOnline=true]
+   * @param {boolean} [isLinked=true]
    */
-  renderMoisture(pct) {
-    if (pct === null || pct === undefined) return;
+  renderMoisture(pct, isOnline = true, isLinked = true) {
     const el = this.elements;
     if (!el.gaugeArc) return;
+
+    if (!isLinked) {
+      el.gaugeArc.style.strokeDashoffset = 314;
+      el.gaugeArc.style.stroke = 'var(--green-100)';
+      el.moistureValue.textContent = '—';
+      el.moistureBar.style.width = '0%';
+      el.moistureBar.style.background = 'var(--gray-300)';
+      el.moistureStatus.textContent = 'Unit belum terhubung';
+      return;
+    }
+
+    if (!isOnline) {
+      el.gaugeArc.style.strokeDashoffset = 314;
+      el.gaugeArc.style.stroke = 'var(--green-100)';
+      el.moistureValue.textContent = '—';
+      el.moistureBar.style.width = '0%';
+      el.moistureBar.style.background = 'var(--gray-300)';
+      el.moistureStatus.textContent = 'Perangkat IoT offline';
+      return;
+    }
+
+    if (pct === null || pct === undefined) {
+      el.gaugeArc.style.strokeDashoffset = 314;
+      el.gaugeArc.style.stroke = 'var(--green-100)';
+      el.moistureValue.textContent = '—';
+      el.moistureBar.style.width = '0%';
+      el.moistureBar.style.background = 'var(--gray-300)';
+      el.moistureStatus.textContent = '—';
+      return;
+    }
 
     const circumference = 314;
     el.gaugeArc.style.strokeDashoffset = circumference - (pct / 100) * circumference;
@@ -30,19 +62,19 @@ export const moistureView = {
 
     let statusText, barColor, strokeColor;
     if (pct < 30) {
-      statusText  = '🔴 Sangat Kering — Perlu Disiram!';
+      statusText  = 'Sangat Kering - Perlu Disiram';
       barColor    = 'linear-gradient(90deg, #e63946, #f4a261)';
       strokeColor = '#e63946';
     } else if (pct < 50) {
-      statusText  = '🟡 Cukup Kering — Pantau Terus';
+      statusText  = 'Cukup Kering - Pantau Terus';
       barColor    = 'linear-gradient(90deg, #f4a261, #ffd166)';
       strokeColor = '#f4a261';
     } else if (pct < 75) {
-      statusText  = '🟢 Lembap — Kondisi Baik';
+      statusText  = 'Lembap - Kondisi Baik';
       barColor    = 'linear-gradient(90deg, var(--green-600), var(--green-400))';
       strokeColor = '#52B788';
     } else {
-      statusText  = '💧 Sangat Lembap — Tidak Perlu Disiram';
+      statusText  = 'Sangat Lembap - Tidak Perlu Disiram';
       barColor    = 'linear-gradient(90deg, #0096c7, #52B788)';
       strokeColor = '#0096c7';
     }
@@ -52,4 +84,3 @@ export const moistureView = {
     el.gaugeArc.style.stroke        = strokeColor;
   },
 };
-

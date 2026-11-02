@@ -46,12 +46,23 @@ export const telemetryController = {
 
     try {
       const data = await telemetryService.getStatus(state.currentDeviceId);
-      telemetryView.setConnected(true);
-      state.pumpOn = data.pump_on;
-      state.moisture = data.moisture;
+      const isOnline = Boolean(data.is_online);
+      const isLinked = Boolean(data.is_linked);
+      const hasData = Boolean(data.has_data && data.moisture !== null && data.moisture !== undefined);
 
-      pumpView.renderPump(data.pump_on);
-      moistureView.renderMoisture(data.moisture);
+      telemetryView.setConnected(isOnline && isLinked);
+
+      state.pumpOn = Boolean(data.pump_on && isOnline && isLinked);
+      state.moisture = hasData && isOnline && isLinked ? data.moisture : null;
+
+      pumpView.renderPump(data.pump_on, isOnline, isLinked);
+      moistureView.renderMoisture(data.moisture, isOnline, isLinked);
+
+      // Disable manual actuators when unit is offline or unlinked
+      if (!isOnline || !isLinked) {
+        if (pumpView.elements.pumpOnBtn)  pumpView.elements.pumpOnBtn.disabled  = true;
+        if (pumpView.elements.pumpOffBtn) pumpView.elements.pumpOffBtn.disabled = true;
+      }
 
       // Sync mode switch state if user isn't toggling
       const modeSwitch = pumpView.elements.modeSwitch;
