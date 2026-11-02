@@ -15,6 +15,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  position: relative;
 }
 
 .header__brand {
@@ -45,6 +46,28 @@
   color: var(--green-300);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* --- Desktop Navigation --- */
+.header__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  margin-left: var(--space-6);
+  gap: var(--space-4);
+}
+
+.header__center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .header__meta {
@@ -106,15 +129,154 @@
   50%       { box-shadow: 0 0 0 6px rgba(82,183,136,0.08); }
 }
 
-.header__center {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
+/* --- Hamburger Button for Mobile --- */
+.hamburger-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 42px;
+  height: 42px;
+  padding: 11px 9px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(82, 183, 136, 0.25);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+  z-index: 102;
 }
 
-.header__right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+.hamburger-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: var(--green-400);
 }
 
+.hamburger-btn:focus-visible {
+  outline: 2px solid var(--green-400);
+  outline-offset: 2px;
+}
+
+.hamburger-bar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background-color: var(--white);
+  border-radius: var(--radius-full);
+  transition: transform var(--transition), opacity var(--transition), background-color var(--transition);
+  transform-origin: center;
+}
+
+/* Hamburger Morph into 'X' when active */
+.hamburger-btn.is-active .hamburger-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger-btn.is-active .hamburger-bar:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.hamburger-btn.is-active .hamburger-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* --- Mobile Responsive Rules --- */
+@media (max-width: 768px) {
+  .hamburger-btn {
+    display: flex;
+  }
+
+  .header__title {
+    font-size: 1.1rem;
+  }
+
+  .header__nav {
+    display: none;
+    position: absolute;
+    top: calc(100% + var(--space-4));
+    left: 0;
+    right: 0;
+    background: rgba(20, 52, 38, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(82, 183, 136, 0.25);
+    border-bottom: 1px solid rgba(82, 183, 136, 0.25);
+    padding: var(--space-5) var(--space-4);
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-left: 0;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    z-index: 101;
+    animation: slideDownMenu 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .header__nav.is-open {
+    display: flex;
+  }
+
+  .header__center {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: var(--space-3);
+  }
+
+  .unit-selector-wrap {
+    width: 100%;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .select--device {
+    flex: 1;
+    max-width: unset;
+    font-size: 0.9rem;
+    height: 38px;
+  }
+
+  .header__meta {
+    width: 100%;
+    justify-content: space-between;
+    padding: var(--space-2) 0;
+    border-top: 1px solid rgba(82, 183, 136, 0.15);
+    border-bottom: 1px solid rgba(82, 183, 136, 0.15);
+  }
+
+  .header__time {
+    display: block !important;
+    font-size: 0.875rem;
+  }
+
+  .header__right {
+    width: 100%;
+    justify-content: center;
+  }
+
+  #userAuthArea {
+    width: 100%;
+  }
+
+  #userAuthArea .btn {
+    width: 100%;
+    height: 42px;
+    font-size: 0.9rem;
+  }
+
+  .user-badge {
+    width: 100%;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.875rem;
+  }
+}
+
+@keyframes slideDownMenu {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

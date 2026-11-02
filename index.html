@@ -32,30 +32,38 @@
         </div>
       </div>
 
-      <!-- Center: Unit Selector & Status/Waktu berdekatan -->
-      <div class="header__center">
-        <div class="unit-selector-wrap" title="Pilih unit tanaman">
-          <select id="deviceSelector" class="select select--device" aria-label="Pilih Unit Tanaman">
-            <option value="DEV-PLB-001">Unit Utama</option>
-          </select>
-          <button class="btn btn--ghost btn--xs" id="addDeviceBtn" title="Hubungkan unit baru">+ Unit</button>
-        </div>
+      <!-- Hamburger Button (Mobile view <= 768px) -->
+      <button type="button" class="hamburger-btn" id="hamburgerBtn" aria-label="Menu navigasi" aria-expanded="false" aria-controls="headerNav">
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+      </button>
 
-        <div class="header__meta">
-          <div class="connection-badge" id="connectionBadge">
-            <span class="connection-badge__dot"></span>
-            <span class="connection-badge__text" id="connectionText">Menghubungkan...</span>
+      <!-- Navigation & Controls (Desktop Inline / Mobile Drawer) -->
+      <nav class="header__nav" id="headerNav" aria-label="Navigasi Header">
+        <div class="header__center">
+          <div class="unit-selector-wrap" title="Pilih unit tanaman">
+            <select id="deviceSelector" class="select select--device" aria-label="Pilih Unit Tanaman">
+              <option value="DEV-PLB-001">Unit Utama</option>
+            </select>
+            <button class="btn btn--ghost btn--xs" id="addDeviceBtn" title="Hubungkan unit baru">+ Unit</button>
           </div>
-          <div class="header__time" id="currentTime">--:--:--</div>
-        </div>
-      </div>
 
-      <!-- Far Right: User Auth Area -->
-      <div class="header__right">
-        <div id="userAuthArea">
-          <button class="btn btn--ghost btn--xs" id="authBtn">Masuk</button>
+          <div class="header__meta">
+            <div class="connection-badge" id="connectionBadge">
+              <span class="connection-badge__dot"></span>
+              <span class="connection-badge__text" id="connectionText">Menghubungkan...</span>
+            </div>
+            <div class="header__time" id="currentTime">--:--:--</div>
+          </div>
         </div>
-      </div>
+
+        <div class="header__right">
+          <div id="userAuthArea">
+            <button class="btn btn--ghost btn--xs" id="authBtn">Masuk</button>
+          </div>
+        </div>
+      </nav>
     </div>
   </header>
 

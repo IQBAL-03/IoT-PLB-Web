@@ -12,6 +12,7 @@ import { moistureView } from './features/moisture/moisture.view.js';
 import { historyController } from './features/history/history.controller.js';
 import { simulatorController } from './features/simulator/simulator.controller.js';
 import { telemetryController } from './features/telemetry/telemetry.controller.js';
+import { navController } from './features/navigation/nav.controller.js';
 
 async function bootstrap() {
   // Listen for global auth modal open requests
@@ -22,7 +23,8 @@ async function bootstrap() {
   // Set default uninitialized presentation state
   moistureView.renderMoisture(null, false, false);
 
-  // Initialize all feature controllers
+  // Initialize navigation & feature controllers
+  navController.init();
   authController.init();
   pumpController.init();
   historyController.init();
