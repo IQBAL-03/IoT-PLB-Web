@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"plantcare-iot/internal/config"
-	"plantcare-iot/internal/feature/history"
-	"plantcare-iot/internal/model"
-	"plantcare-iot/internal/pkg/response"
+	"plantcare-iot/pkg/config"
+	"plantcare-iot/pkg/feature/history"
+	"plantcare-iot/pkg/model"
+	"plantcare-iot/pkg/response"
 )
 
 // Handler manages HTTP endpoints for actuators and status queries.

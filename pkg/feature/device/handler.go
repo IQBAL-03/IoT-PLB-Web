@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
-	"plantcare-iot/internal/config"
-	"plantcare-iot/internal/middleware"
-	"plantcare-iot/internal/model"
-	"plantcare-iot/internal/pkg/response"
+	"plantcare-iot/pkg/config"
+	"plantcare-iot/pkg/middleware"
+	"plantcare-iot/pkg/model"
+	"plantcare-iot/pkg/response"
 )
 
 // Handler manages HTTP endpoints for devices.

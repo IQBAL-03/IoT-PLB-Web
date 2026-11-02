@@ -3,8 +3,8 @@ package history
 import (
 	"net/http"
 
-	"plantcare-iot/internal/config"
-	"plantcare-iot/internal/pkg/response"
+	"plantcare-iot/pkg/config"
+	"plantcare-iot/pkg/response"
 )
 
 // Handler manages HTTP endpoints for history.

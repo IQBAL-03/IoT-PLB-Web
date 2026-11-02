@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"plantcare-iot/internal/config"
-	"plantcare-iot/internal/model"
-	"plantcare-iot/internal/pkg/crypto"
+	"plantcare-iot/pkg/config"
+	"plantcare-iot/pkg/model"
+	"plantcare-iot/pkg/crypto"
 )
 
 type gzipWriter struct {

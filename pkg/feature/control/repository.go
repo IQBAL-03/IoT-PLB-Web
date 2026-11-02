@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"plantcare-iot/internal/model"
+	"plantcare-iot/pkg/model"
 )
 
 // Repository manages pump state and operational mode data.

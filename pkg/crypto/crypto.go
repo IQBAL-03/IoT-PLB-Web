@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"plantcare-iot/internal/model"
+	"plantcare-iot/pkg/model"
 )
 
 const salt = "plb_salt_2026"
