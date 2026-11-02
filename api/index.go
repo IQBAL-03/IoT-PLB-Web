@@ -124,6 +124,30 @@ func getDB() (*sql.DB, error) {
 	return db, nil
 }
 
+func addColumnIfNotExists(conn *sql.DB, table, column, colDef string) {
+	var count int
+	err := conn.QueryRow(`
+		SELECT COUNT(*) 
+		FROM information_schema.COLUMNS 
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?
+	`, table, column).Scan(&count)
+	if err == nil && count == 0 {
+		_, _ = conn.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, colDef))
+	}
+}
+
+func addUniqueIndexIfNotExists(conn *sql.DB, table, indexName, colName string) {
+	var count int
+	err := conn.QueryRow(`
+		SELECT COUNT(*) 
+		FROM information_schema.STATISTICS 
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?
+	`, table, indexName).Scan(&count)
+	if err == nil && count == 0 {
+		_, _ = conn.Exec(fmt.Sprintf("ALTER TABLE %s ADD UNIQUE KEY %s (%s)", table, indexName, colName))
+	}
+}
+
 func migrate(conn *sql.DB) error {
 	// 1. Users Table
 	_, err := conn.Exec(`
@@ -179,6 +203,10 @@ func migrate(conn *sql.DB) error {
 		return err
 	}
 
+	// Seamless schema upgrade for existing tables
+	addColumnIfNotExists(conn, "system_status", "device_id", "VARCHAR(50) NOT NULL DEFAULT 'DEV-PLB-001'")
+	addUniqueIndexIfNotExists(conn, "system_status", "uq_dev", "device_id")
+
 	_, _ = conn.Exec(`
 		INSERT IGNORE INTO system_status (id, device_id, pump_on, moisture, mode, threshold)
 		VALUES (1, 'DEV-PLB-001', 0, 0, 'auto', 50)
@@ -197,7 +225,13 @@ func migrate(conn *sql.DB) error {
 			INDEX idx_dev (device_id, id DESC)
 		)
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+
+	addColumnIfNotExists(conn, "pump_history", "device_id", "VARCHAR(50) NOT NULL DEFAULT 'DEV-PLB-001'")
+
+	return nil
 }
 
 // ─── JWT & Auth Utilities ─────────────────────────────────────────────────────
