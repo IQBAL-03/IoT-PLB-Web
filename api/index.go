@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"crypto/hmac"
 	"crypto/sha256"
-	"crypto/tls"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -19,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -62,62 +61,67 @@ type UserClaims struct {
 // ─── Database Singleton & Migration ──────────────────────────────────────────
 
 var (
-	db     *sql.DB
-	dbOnce sync.Once
-	dbErr  error
+	db   *sql.DB
+	dbMu sync.Mutex
 )
 
 func getDB() (*sql.DB, error) {
-	dbOnce.Do(func() {
-		host := os.Getenv("TIDB_HOST")
-		port := os.Getenv("TIDB_PORT")
-		user := os.Getenv("TIDB_USER")
-		pass := os.Getenv("TIDB_PASSWORD")
-		dbName := os.Getenv("TIDB_DB")
+	dbMu.Lock()
+	defer dbMu.Unlock()
 
-		if port == "" {
-			port = "4000"
+	// Reuse existing healthy connection
+	if db != nil {
+		if err := db.Ping(); err == nil {
+			return db, nil
 		}
-		if dbName == "" {
-			dbName = "test"
-		}
+		_ = db.Close()
+		db = nil
+	}
 
-		tlsKey := "tidb"
-		if err := mysql.RegisterTLSConfig(tlsKey, &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			ServerName: host,
-		}); err != nil {
-			dbErr = fmt.Errorf("db: register TLS: %w", err)
-			return
-		}
+	host := os.Getenv("TIDB_HOST")
+	port := os.Getenv("TIDB_PORT")
+	user := os.Getenv("TIDB_USER")
+	pass := os.Getenv("TIDB_PASSWORD")
+	dbName := os.Getenv("TIDB_DB")
 
-		dsn := fmt.Sprintf(
-			"%s:%s@tcp(%s:%s)/%s?tls=%s&parseTime=true&loc=UTC&timeout=10s&readTimeout=10s&writeTimeout=10s",
-			user, pass, host, port, dbName, tlsKey,
-		)
+	if host == "" || user == "" {
+		return nil, fmt.Errorf("variabel lingkungan database belum disetel di Vercel (TIDB_HOST=%q, TIDB_USER=%q)", host, user)
+	}
 
-		conn, err := sql.Open("mysql", dsn)
-		if err != nil {
-			dbErr = fmt.Errorf("db: open: %w", err)
-			return
-		}
+	if port == "" {
+		port = "4000"
+	}
+	if dbName == "" {
+		dbName = "test"
+	}
 
-		conn.SetMaxOpenConns(5)
-		conn.SetMaxIdleConns(2)
+	// TiDB Cloud Serverless uses standard public-trusted TLS certificates (tls=true)
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?tls=true&charset=utf8mb4&parseTime=true&loc=UTC&timeout=10s&readTimeout=10s&writeTimeout=10s",
+		user, pass, host, port, dbName,
+	)
 
-		if err := conn.Ping(); err != nil {
-			dbErr = fmt.Errorf("db: ping: %w", err)
-			return
-		}
+	conn, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("db: open: %w", err)
+	}
 
-		if err := migrate(conn); err != nil {
-			dbErr = fmt.Errorf("db: migrate: %w", err)
-			return
-		}
+	conn.SetMaxOpenConns(5)
+	conn.SetMaxIdleConns(2)
+	conn.SetConnMaxLifetime(4 * time.Minute)
 
-		db = conn
-	})
-	return db, dbErr
+	if err := conn.Ping(); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("db: ping: %w", err)
+	}
+
+	if err := migrate(conn); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("db: migrate: %w", err)
+	}
+
+	db = conn
+	return db, nil
 }
 
 func migrate(conn *sql.DB) error {
