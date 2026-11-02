@@ -18,6 +18,20 @@ export const pumpController = {
   bindEvents() {
     const el = pumpView.elements;
 
+    if (el.modeAutoBtn) {
+      el.modeAutoBtn.addEventListener('click', () => {
+        if (!state.isManual) return;
+        this.setMode(true);
+      });
+    }
+
+    if (el.modeManualBtn) {
+      el.modeManualBtn.addEventListener('click', () => {
+        if (state.isManual) return;
+        this.setMode(false);
+      });
+    }
+
     if (el.modeSwitch) {
       el.modeSwitch.addEventListener('change', (e) => {
         el.modeSwitch._userChanged = true;
@@ -67,4 +81,3 @@ export const pumpController = {
     }
   },
 };
-

@@ -1,79 +1,159 @@
-.mode-toggle-wrap {
+/* --- Mode Card Header & Badge --- */
+.card--mode .card__header {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin-bottom: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.mode-labels {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.mode-label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--gray-500);
-  transition: color var(--transition);
-}
-.mode-label--active { color: var(--green-700); font-weight: 700; }
-
-.mode-toggle {
   position: relative;
-  display: inline-block;
-  cursor: pointer;
 }
 
-.mode-toggle__input {
-  position: absolute;
-  opacity: 0; width: 0; height: 0;
-}
-
-.mode-toggle__track {
-  display: block;
-  width: 52px; height: 28px;
-  background: var(--gray-200);
+.mode-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px var(--space-3);
   border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: auto;
+  transition: all var(--transition);
+}
+
+.mode-badge--auto {
+  background: var(--green-100);
+  color: var(--green-800);
+  border: 1px solid var(--green-300);
+}
+
+.mode-badge--manual {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+/* --- Segmented Mode Switcher --- */
+.segmented-control {
+  display: flex;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: var(--space-4);
   position: relative;
-  transition: background var(--transition);
 }
 
-.mode-toggle__input:checked ~ .mode-toggle__track {
-  background: linear-gradient(135deg, var(--green-600), var(--green-500));
-}
-
-.mode-toggle__thumb {
-  position: absolute;
-  top: 3px; left: 3px;
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-  transition: transform var(--transition);
-}
-
-.mode-toggle__input:checked ~ .mode-toggle__track .mode-toggle__thumb {
-  transform: translateX(24px);
-}
-
-.mode-current {
-  font-size: 0.85rem;
+.segmented-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font);
+  font-size: 0.875rem;
   font-weight: 600;
-  color: var(--green-700);
+  color: var(--gray-700);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.segmented-btn:hover:not(.segmented-btn--active) {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--green-900);
+}
+
+.segmented-btn--active {
+  background: linear-gradient(135deg, var(--green-600), var(--green-700));
+  color: var(--white);
+  box-shadow: 0 2px 6px rgba(27, 67, 50, 0.25);
+}
+
+#modeManualBtn.segmented-btn--active {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: var(--white);
+  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.3);
+}
+
+.segmented-icon {
+  flex-shrink: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+  border: 0;
+}
+
+/* --- Mode Description & Status Banner --- */
+.mode-info {
+  background: var(--green-50);
+  border: 1px solid var(--green-200);
+  border-left: 4px solid var(--green-500);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  transition: all var(--transition);
+}
+
+.mode-info--manual {
+  background: #fffbeb;
+  border-color: #fde68a;
+  border-left-color: #d97706;
+}
+
+.mode-info__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.mode-info__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green-500);
+  box-shadow: 0 0 0 2px rgba(82, 183, 136, 0.3);
+  flex-shrink: 0;
+}
+
+.mode-info--manual .mode-info__dot {
+  background: #d97706;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.3);
+}
+
+.mode-info__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--green-900);
+}
+
+.mode-info--manual .mode-info__title {
+  color: #78350f;
 }
 
 .mode-desc {
   font-size: 0.8rem;
-  color: var(--gray-500);
+  color: var(--gray-700);
   line-height: 1.5;
-  padding: var(--space-3);
-  background: var(--green-50);
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--green-400);
+  margin: 0;
 }
 
+.mode-info--manual .mode-desc {
+  color: #92400e;
+}
+
+/* --- Control Panel (Manual Actuators) --- */
 .control-panel {
   background: var(--white);
   border-radius: var(--radius-lg);
@@ -108,4 +188,3 @@
   gap: var(--space-4);
   flex-wrap: wrap;
 }
-

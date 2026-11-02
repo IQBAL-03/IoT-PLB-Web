@@ -149,22 +149,36 @@
                 </svg>
               </div>
               <span class="card__label">Mode Sistem</span>
+              <span class="mode-badge mode-badge--auto" id="modeBadge">Otomatis</span>
             </div>
             <div class="card__body">
-              <div class="mode-toggle-wrap">
-                <div class="mode-labels">
-                  <span class="mode-label" id="modeManualLabel">Manual</span>
-                  <span class="mode-label mode-label--active" id="modeAutoLabel">Otomatis</span>
-                </div>
-                <label class="mode-toggle" for="modeSwitch" aria-label="Toggle mode manual/otomatis">
-                  <input type="checkbox" id="modeSwitch" class="mode-toggle__input" checked />
-                  <span class="mode-toggle__track">
-                    <span class="mode-toggle__thumb"></span>
-                  </span>
-                </label>
-                <span class="mode-current" id="modeCurrent">Mode: Otomatis</span>
+              <div class="segmented-control" role="group" aria-label="Pilih Mode Sistem">
+                <button type="button" class="segmented-btn segmented-btn--active" id="modeAutoBtn" aria-pressed="true">
+                  <svg class="segmented-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M21 12h-2M5 12H3M17.66 17.66l-1.41-1.41M6.75 6.75L5.34 5.34M12 19v2M12 3V1"/>
+                  </svg>
+                  <span>Otomatis</span>
+                </button>
+                <button type="button" class="segmented-btn" id="modeManualBtn" aria-pressed="false">
+                  <svg class="segmented-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/>
+                    <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/>
+                    <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
+                    <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+                  </svg>
+                  <span>Manual</span>
+                </button>
+                <input type="checkbox" id="modeSwitch" class="visually-hidden" checked />
               </div>
-              <p class="mode-desc" id="modeDesc">Pompa bekerja otomatis berdasarkan pembacaan sensor kelembapan.</p>
+
+              <div class="mode-info" id="modeInfoBox">
+                <div class="mode-info__header">
+                  <span class="mode-info__dot"></span>
+                  <span class="mode-info__title" id="modeCurrent">Mode Aktif: Otomatis</span>
+                </div>
+                <p class="mode-desc" id="modeDesc">Pompa bekerja otomatis berdasarkan pembacaan sensor kelembapan tanah.</p>
+              </div>
             </div>
           </div>
 

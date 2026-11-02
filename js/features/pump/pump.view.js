@@ -12,11 +12,13 @@ export const pumpView = {
       pumpDot:           $('pumpDot'),
       pumpState:         $('pumpState'),
       pumpDetail:        $('pumpDetail'),
-      modeSwitch:        $('modeSwitch'),
+      modeAutoBtn:       $('modeAutoBtn'),
+      modeManualBtn:     $('modeManualBtn'),
+      modeBadge:         $('modeBadge'),
+      modeInfoBox:       $('modeInfoBox'),
       modeCurrent:       $('modeCurrent'),
       modeDesc:          $('modeDesc'),
-      modeManualLabel:   $('modeManualLabel'),
-      modeAutoLabel:     $('modeAutoLabel'),
+      modeSwitch:        $('modeSwitch'),
       manualBadgeStatus: $('manualBadgeStatus'),
       controlPanel:      $('controlPanel'),
       controlInfo:       $('controlInfo'),
@@ -57,23 +59,51 @@ export const pumpView = {
     }
   },
 
+  /**
+   * Updates segmented control buttons, header badge, and explanation box according to active mode.
+   * @param {boolean} isManual
+   */
   renderMode(isManual) {
     const el = this.elements;
-    if (!el.modeSwitch) return;
 
-    el.modeManualLabel.classList.toggle('mode-label--active', isManual);
-    el.modeAutoLabel.classList.toggle('mode-label--active', !isManual);
-    el.modeCurrent.textContent = isManual ? 'Mode: Manual' : 'Mode: Otomatis';
-    el.modeDesc.textContent    = isManual
-      ? 'Pompa dikendalikan secara manual melalui tombol di bawah.'
-      : 'Pompa bekerja otomatis berdasarkan pembacaan sensor kelembapan.';
+    if (el.modeSwitch) {
+      el.modeSwitch.checked = !isManual;
+    }
 
-    el.pumpOnBtn.disabled  = !isManual;
-    el.pumpOffBtn.disabled = !isManual;
-    el.controlPanel.classList.toggle('is-active', isManual);
-    el.controlInfo.textContent = isManual
-      ? 'Mode manual aktif. Gunakan tombol di bawah untuk mengontrol pompa.'
-      : 'Aktifkan mode manual untuk mengontrol pompa secara langsung.';
+    if (el.modeAutoBtn && el.modeManualBtn) {
+      el.modeAutoBtn.classList.toggle('segmented-btn--active', !isManual);
+      el.modeAutoBtn.setAttribute('aria-pressed', !isManual ? 'true' : 'false');
+      el.modeManualBtn.classList.toggle('segmented-btn--active', isManual);
+      el.modeManualBtn.setAttribute('aria-pressed', isManual ? 'true' : 'false');
+    }
+
+    if (el.modeBadge) {
+      el.modeBadge.textContent = isManual ? 'Manual' : 'Otomatis';
+      el.modeBadge.className = `mode-badge ${isManual ? 'mode-badge--manual' : 'mode-badge--auto'}`;
+    }
+
+    if (el.modeInfoBox) {
+      el.modeInfoBox.classList.toggle('mode-info--manual', isManual);
+    }
+
+    if (el.modeCurrent) {
+      el.modeCurrent.textContent = isManual ? 'Mode Aktif: Manual' : 'Mode Aktif: Otomatis';
+    }
+
+    if (el.modeDesc) {
+      el.modeDesc.textContent = isManual
+        ? 'Mode manual aktif. Pompa dapat dinyalakan atau dimatikan secara langsung melalui tombol kontrol di bawah.'
+        : 'Mode otomatis aktif. Pompa menyiram secara mandiri saat sensor mendeteksi kelembapan tanah di bawah batas.';
+    }
+
+    if (el.pumpOnBtn)  el.pumpOnBtn.disabled  = !isManual;
+    if (el.pumpOffBtn) el.pumpOffBtn.disabled = !isManual;
+    if (el.controlPanel) el.controlPanel.classList.toggle('is-active', isManual);
+    if (el.controlInfo) {
+      el.controlInfo.textContent = isManual
+        ? 'Mode manual aktif. Gunakan tombol di bawah untuk mengontrol pompa.'
+        : 'Aktifkan mode manual untuk mengontrol pompa secara langsung.';
+    }
 
     if (el.manualBadgeStatus) {
       el.manualBadgeStatus.textContent = isManual ? 'Mode Manual Aktif' : 'Mode Otomatis Aktif';
