@@ -1,0 +1,82 @@
+.moisture-gauge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.moisture-gauge__circle {
+  position: relative;
+  width: 120px; height: 120px;
+  flex-shrink: 0;
+}
+
+.moisture-gauge__svg { width: 100%; height: 100%; }
+
+.moisture-gauge__track {
+  fill: none;
+  stroke: var(--green-100);
+  stroke-width: 10;
+}
+
+.moisture-gauge__fill {
+  fill: none;
+  stroke: url(#gaugeGradient);
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.moisture-gauge__center {
+  position: absolute;
+  inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+
+.moisture-gauge__value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--green-800);
+  line-height: 1;
+}
+
+.moisture-gauge__unit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--green-500);
+}
+
+.moisture-gauge__meta { flex: 1; min-width: 100px; }
+
+.moisture-gauge__status {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--green-700);
+  margin-bottom: var(--space-3);
+}
+
+.moisture-gauge__bar-wrap {
+  background: var(--green-100);
+  border-radius: var(--radius-full);
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+
+.moisture-gauge__bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green-600), var(--green-400));
+  border-radius: var(--radius-full);
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 0%;
+}
+
+.moisture-gauge__legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--gray-500);
+}
+

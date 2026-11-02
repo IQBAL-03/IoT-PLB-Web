@@ -1,0 +1,48 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green-900: #1B4332;
+  --green-800: #1E5340;
+  --green-700: #2D6A4F;
+  --green-600: #40916C;
+  --green-500: #52B788;
+  --green-400: #74C69D;
+  --green-300: #95D5B2;
+  --green-200: #B7E4C7;
+  --green-100: #D8F3DC;
+  --green-50:  #F0FAF3;
+  --white:     #FFFFFF;
+  --off-white: #F8FAF9;
+  --gray-100:  #F1F5F3;
+  --gray-200:  #E0EAE4;
+  --gray-300:  #C2D5CA;
+  --gray-500:  #7A9B8A;
+  --gray-700:  #4A6358;
+  --red-500:   #E63946;
+  --red-100:   #FFE4E6;
+  --yellow-500:#F4A261;
+  --yellow-100:#FFF3E0;
+  --font: 'Inter', sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 3px rgba(27,67,50,.08), 0 1px 2px rgba(27,67,50,.05);
+  --shadow-md: 0 4px 12px rgba(27,67,50,.10), 0 2px 6px rgba(27,67,50,.07);
+  --shadow-lg: 0 10px 30px rgba(27,67,50,.12), 0 4px 12px rgba(27,67,50,.08);
+  --shadow-xl: 0 20px 50px rgba(27,67,50,.15);
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+

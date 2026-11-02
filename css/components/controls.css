@@ -1,0 +1,111 @@
+.mode-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.mode-labels {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.mode-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--gray-500);
+  transition: color var(--transition);
+}
+.mode-label--active { color: var(--green-700); font-weight: 700; }
+
+.mode-toggle {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.mode-toggle__input {
+  position: absolute;
+  opacity: 0; width: 0; height: 0;
+}
+
+.mode-toggle__track {
+  display: block;
+  width: 52px; height: 28px;
+  background: var(--gray-200);
+  border-radius: var(--radius-full);
+  position: relative;
+  transition: background var(--transition);
+}
+
+.mode-toggle__input:checked ~ .mode-toggle__track {
+  background: linear-gradient(135deg, var(--green-600), var(--green-500));
+}
+
+.mode-toggle__thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  transition: transform var(--transition);
+}
+
+.mode-toggle__input:checked ~ .mode-toggle__track .mode-toggle__thumb {
+  transform: translateX(24px);
+}
+
+.mode-current {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--green-700);
+  white-space: nowrap;
+}
+
+.mode-desc {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  line-height: 1.5;
+  padding: var(--space-3);
+  background: var(--green-50);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--green-400);
+}
+
+.control-panel {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.control-panel.is-active {
+  border-color: var(--green-300);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--green-200);
+}
+
+.control-panel__info {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--green-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--green-100);
+  margin-bottom: var(--space-5);
+  color: var(--green-700);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.control-panel__info svg { flex-shrink: 0; margin-top: 2px; }
+
+.control-buttons {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
