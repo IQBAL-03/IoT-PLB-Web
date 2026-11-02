@@ -251,9 +251,4 @@
   padding: 0 var(--space-3);
 }
 
-@media (max-width: 640px) {
-  .header__inner { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
-  .header__center { width: 100%; justify-content: space-between; }
-  .header__right { width: 100%; justify-content: flex-end; margin-left: 0; }
-}
 
