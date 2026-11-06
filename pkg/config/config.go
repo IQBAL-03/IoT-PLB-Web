@@ -2,9 +2,21 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"log"
 	"os"
 	"strconv"
 )
+
+// generateEphemeralSecret creates a cryptographically secure 256-bit random string.
+func generateEphemeralSecret(numBytes int) string {
+	bytes := make([]byte, numBytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return "emergency-random-seed-2026"
+	}
+	return hex.EncodeToString(bytes)
+}
 
 // Config holds runtime configuration settings loaded from environment variables.
 type Config struct {
@@ -33,7 +45,8 @@ func Load() Config {
 
 	jwtSec := os.Getenv("JWT_SECRET")
 	if jwtSec == "" {
-		jwtSec = "plantcare-secret-key-2026-auth-token-tidb"
+		log.Println("[SECURITY WARNING] JWT_SECRET environment variable is missing. Generated ephemeral runtime secret.")
+		jwtSec = generateEphemeralSecret(32)
 	}
 
 	origin := os.Getenv("ALLOWED_ORIGIN")
@@ -60,4 +73,5 @@ func Load() Config {
 		DefaultDeviceID:   "DEV-PLB-001",
 	}
 }
+
 

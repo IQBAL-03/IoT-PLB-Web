@@ -8,18 +8,27 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"time"
 
 	"plantcare-iot/pkg/model"
 )
 
-const salt = "plb_salt_2026"
+const defaultSalt = "plb_salt_2026"
+
+// getSalt resolves the password hashing salt from environment variables or returns default.
+func getSalt() string {
+	if custom := os.Getenv("PASSWORD_SALT"); custom != "" {
+		return custom
+	}
+	return defaultSalt
+}
 
 // HashPassword produces a salted SHA-256 hash string for user authentication.
 func HashPassword(pass string) string {
 	h := sha256.New()
-	h.Write([]byte(salt + pass))
+	h.Write([]byte(getSalt() + pass))
 	return hex.EncodeToString(h.Sum(nil))
 }
 

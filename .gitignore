@@ -1,16 +1,33 @@
 # Sensitive & Credentials
-pw-db.md
+pw*.md
+*password*
+*secret*
 .env
 .env.*
 *.env
+!.env.example
 client_secret*.json
 *.client_secret.json
+*.key
+*.pem
+*.cert
 
 # Local notes / hardware
 iot.io
 planning.md
-
-# Local assets / screenshots
-image.png
-*.local.png
 Agent.md
+
+# Screenshots & Local media
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.bmp
+
+# OS & Temp files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
