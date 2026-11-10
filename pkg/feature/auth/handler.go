@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"plantcare-iot/pkg/config"
+	"plantcare-iot/pkg/crypto"
+	"plantcare-iot/pkg/mailer"
 	"plantcare-iot/pkg/middleware"
 	"plantcare-iot/pkg/model"
-	"plantcare-iot/pkg/crypto"
 	"plantcare-iot/pkg/response"
 )
 
@@ -140,4 +142,89 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
+
+// SendOTP generates and emails a 6-digit OTP code to the requested address.
+func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var req model.SendOTPReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Email) == "" {
+		response.Error(w, http.StatusBadRequest, "Alamat email wajib diisi.")
+		return
+	}
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+		response.Error(w, http.StatusBadRequest, "Format email tidak valid.")
+		return
+	}
+
+	otpCode := mailer.GenerateOTP()
+	expiresAt := time.Now().Add(5 * time.Minute).UTC().Format("2006-01-02 15:04:05")
+
+	if err := h.repo.SaveOTP(email, otpCode, expiresAt); err != nil {
+		response.DBError(w, err)
+		return
+	}
+
+	if err := mailer.SendOTP(h.cfg, email, otpCode); err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal mengirimkan email OTP: "+err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{
+		"ok":      true,
+		"message": "Kode OTP berhasil dikirimkan ke email Anda (berlaku 5 menit).",
+		"email":   email,
+	})
+}
+
+// VerifyOTP validates the OTP code and creates or logs in the user with JWT.
+func (h *Handler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var req model.VerifyOTPReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Code) == "" {
+		response.Error(w, http.StatusBadRequest, "Email dan kode OTP wajib diisi.")
+		return
+	}
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	code := strings.TrimSpace(req.Code)
+
+	valid, err := h.repo.VerifyAndConsumeOTP(email, code)
+	if err != nil {
+		response.DBError(w, err)
+		return
+	}
+	if !valid {
+		response.Error(w, http.StatusBadRequest, "Kode OTP salah atau sudah kedaluwarsa.")
+		return
+	}
+
+	uid, name, err := h.repo.UpsertEmailUser(req.Name, email, crypto.HashPassword("otp_verified_"+code))
+	if err != nil {
+		response.DBError(w, err)
+		return
+	}
+
+	token, _ := crypto.CreateJWT(uid, email, name, h.cfg.JWTSecret)
+	response.JSON(w, http.StatusOK, map[string]any{
+		"ok":      true,
+		"message": "Verifikasi OTP berhasil!",
+		"token":   token,
+		"user": map[string]any{
+			"id":    uid,
+			"name":  name,
+			"email": email,
+		},
+	})
+}
+
 

@@ -99,3 +99,38 @@ func (h *Handler) Claim(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Unpair releases ownership of a device for the authenticated user.
+func (h *Handler) Unpair(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	claims := middleware.GetUserFromRequest(r, h.cfg.JWTSecret)
+	if claims == nil {
+		response.Error(w, http.StatusUnauthorized, "Silakan login terlebih dahulu.")
+		return
+	}
+
+	var req struct {
+		DeviceID string `json:"device_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.DeviceID) == "" {
+		response.Error(w, http.StatusBadRequest, "Device ID wajib diisi.")
+		return
+	}
+
+	deviceID := strings.TrimSpace(req.DeviceID)
+	if err := h.repo.Unpair(deviceID, claims.UserID); err != nil {
+		response.DBError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{
+		"ok":        true,
+		"message":   "Perangkat berhasil dilepas dari akun Anda.",
+		"device_id": deviceID,
+	})
+}
+
+

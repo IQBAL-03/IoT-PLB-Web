@@ -72,6 +72,20 @@ func (h *Handler) PumpOn(w http.ResponseWriter, r *http.Request) {
 		userID = &claims.UserID
 	}
 
+	isOwner, hasOwner, err := h.repo.CheckOwnership(devID, userID)
+	if err != nil {
+		response.DBError(w, err)
+		return
+	}
+	if hasOwner && !isOwner {
+		response.Error(w, http.StatusForbidden, "Akses ditolak: Unit ini terdaftar pada akun lain.")
+		return
+	}
+	if !hasOwner && userID == nil {
+		response.Error(w, http.StatusUnauthorized, "Silakan masuk dan hubungkan unit ini menggunakan kode unik terlebih dahulu.")
+		return
+	}
+
 	if err := h.repo.WritePump(devID, true); err != nil {
 		response.DBError(w, err)
 		return
@@ -112,6 +126,20 @@ func (h *Handler) PumpOff(w http.ResponseWriter, r *http.Request) {
 		userID = &claims.UserID
 	}
 
+	isOwner, hasOwner, err := h.repo.CheckOwnership(devID, userID)
+	if err != nil {
+		response.DBError(w, err)
+		return
+	}
+	if hasOwner && !isOwner {
+		response.Error(w, http.StatusForbidden, "Akses ditolak: Unit ini terdaftar pada akun lain.")
+		return
+	}
+	if !hasOwner && userID == nil {
+		response.Error(w, http.StatusUnauthorized, "Silakan masuk dan hubungkan unit ini menggunakan kode unik terlebih dahulu.")
+		return
+	}
+
 	if err := h.repo.WritePump(devID, false); err != nil {
 		response.DBError(w, err)
 		return
@@ -148,6 +176,26 @@ func (h *Handler) Mode(w http.ResponseWriter, r *http.Request) {
 	devID := strings.TrimSpace(req.DeviceID)
 	if devID == "" {
 		devID = response.ResolveDeviceID(r, h.cfg.DefaultDeviceID)
+	}
+
+	claims := middleware.GetUserFromRequest(r, h.cfg.JWTSecret)
+	var userID *int
+	if claims != nil {
+		userID = &claims.UserID
+	}
+
+	isOwner, hasOwner, err := h.repo.CheckOwnership(devID, userID)
+	if err != nil {
+		response.DBError(w, err)
+		return
+	}
+	if hasOwner && !isOwner {
+		response.Error(w, http.StatusForbidden, "Akses ditolak: Unit ini terdaftar pada akun lain.")
+		return
+	}
+	if !hasOwner && userID == nil {
+		response.Error(w, http.StatusUnauthorized, "Silakan masuk dan hubungkan unit ini menggunakan kode unik terlebih dahulu.")
+		return
 	}
 
 	if err := h.repo.WriteMode(devID, req.Mode); err != nil {

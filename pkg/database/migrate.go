@@ -37,10 +37,13 @@ func Migrate(conn *sql.DB) error {
 		return err
 	}
 
-	// Default device for immediate plug-and-play
+	// Default device for immediate plug-and-play & simulation units
 	_, _ = conn.Exec(`
 		INSERT IGNORE INTO devices (device_id, pairing_code, name, blynk_token)
-		VALUES ('DEV-PLB-001', '8821', 'Unit Tanaman Utama', 'dKpUYSW9CoruTAYJMQa82CBf-VyH4h42')
+		VALUES 
+			('DEV-PLB-001', '8821', 'Unit Tanaman Utama (Fisik)', 'dKpUYSW9CoruTAYJMQa82CBf-VyH4h42'),
+			('DEV-PLB-002', '9932', 'Unit Simulasi 2 (Bonsai)', ''),
+			('DEV-PLB-003', '7714', 'Unit Simulasi 3 (Cabai)', '')
 	`)
 
 	// 3. System Status Table
@@ -101,6 +104,31 @@ func Migrate(conn *sql.DB) error {
 	}
 
 	addColumnIfNotExists(conn, "pump_history", "device_id", "VARCHAR(50) NOT NULL DEFAULT 'DEV-PLB-001'")
+
+	// 5. OTP Codes Table for Email Authentication
+	_, err = conn.Exec(`
+		CREATE TABLE IF NOT EXISTS otp_codes (
+			id          INT AUTO_INCREMENT PRIMARY KEY,
+			email       VARCHAR(150) NOT NULL,
+			code        VARCHAR(10)  NOT NULL,
+			expires_at  DATETIME(3)  NOT NULL,
+			is_used     TINYINT(1)   NOT NULL DEFAULT 0,
+			created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			INDEX idx_email_verify (email, code, is_used)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	// Ensure simulation units have rows in system_status
+	_, _ = conn.Exec(`
+		INSERT IGNORE INTO system_status (device_id, pump_on, moisture, has_data, mode, threshold)
+		VALUES 
+			('DEV-PLB-002', 0, NULL, 0, 'auto', 50),
+			('DEV-PLB-003', 0, NULL, 0, 'auto', 50)
+	`)
+
 	return nil
 }
 

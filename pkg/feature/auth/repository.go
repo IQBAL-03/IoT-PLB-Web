@@ -57,3 +57,63 @@ func (r *Repository) UpsertGoogleUser(name, email, defaultHash string) (int, err
 	}
 	return uid, nil
 }
+
+// SaveOTP records an OTP code for an email address with expiration time.
+func (r *Repository) SaveOTP(email, code string, expiresAt string) error {
+	_, err := r.db.Exec(`
+		INSERT INTO otp_codes (email, code, expires_at, is_used)
+		VALUES (?, ?, ?, 0)
+	`, strings.ToLower(strings.TrimSpace(email)), strings.TrimSpace(code), expiresAt)
+	return err
+}
+
+// VerifyAndConsumeOTP checks if the OTP is valid, unexpired, and unused, then marks it as used.
+func (r *Repository) VerifyAndConsumeOTP(email, code string) (bool, error) {
+	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+	cleanCode := strings.TrimSpace(code)
+
+	var otpID int
+	err := r.db.QueryRow(`
+		SELECT id FROM otp_codes 
+		WHERE email = ? AND code = ? AND is_used = 0 AND expires_at > NOW(3)
+		ORDER BY id DESC LIMIT 1
+	`, cleanEmail, cleanCode).Scan(&otpID)
+
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	// Mark as used
+	_, _ = r.db.Exec("UPDATE otp_codes SET is_used = 1 WHERE id = ?", otpID)
+	return true, nil
+}
+
+// UpsertEmailUser retrieves existing user or provisions a new user record.
+func (r *Repository) UpsertEmailUser(name, email, defaultHash string) (int, string, error) {
+	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+	var uid int
+	var existingName string
+
+	err := r.db.QueryRow("SELECT id, name FROM users WHERE email = ? LIMIT 1", cleanEmail).Scan(&uid, &existingName)
+	if err == sql.ErrNoRows {
+		if strings.TrimSpace(name) == "" {
+			parts := strings.Split(cleanEmail, "@")
+			name = parts[0]
+		}
+		res, err := r.db.Exec(`
+			INSERT INTO users (name, email, password_hash)
+			VALUES (?, ?, ?)
+		`, name, cleanEmail, defaultHash)
+		if err != nil {
+			return 0, "", err
+		}
+		newID, _ := res.LastInsertId()
+		return int(newID), name, nil
+	} else if err != nil {
+		return 0, "", err
+	}
+	return uid, existingName, nil
+}

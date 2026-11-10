@@ -43,6 +43,30 @@ export const authService = {
   },
 
   /**
+   * Sends an OTP code to the given email address.
+   * @param {string} email
+   */
+  async sendOTP(email) {
+    return apiFetch('/auth/otp/send', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  /**
+   * Verifies OTP code and signs in or creates an account.
+   * @param {string} email
+   * @param {string} code
+   * @param {string} [name]
+   */
+  async verifyOTP(email, code, name = '') {
+    return apiFetch('/auth/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, name }),
+    });
+  },
+
+  /**
    * Fetches active user session.
    */
   async getMe() {

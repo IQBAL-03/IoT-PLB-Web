@@ -47,6 +47,7 @@
               <option value="DEV-PLB-001">Unit Utama</option>
             </select>
             <button class="btn btn--ghost btn--xs" id="addDeviceBtn" title="Hubungkan unit baru">+ Unit</button>
+            <button class="btn btn--ghost btn--xs btn--danger-ghost" id="unpairDeviceBtn" title="Lepas tautan unit ini" style="display:none;">Lepas</button>
           </div>
 
           <div class="header__meta">
@@ -329,12 +330,43 @@
         <button class="modal__close" id="closeAuthModal" aria-label="Tutup">&times;</button>
       </div>
       <div class="modal__tabs">
-        <button class="modal__tab modal__tab--active" id="tabLogin">Masuk</button>
+        <button class="modal__tab modal__tab--active" id="tabOtp">Login OTP</button>
+        <button class="modal__tab" id="tabLogin">Kata Sandi</button>
         <button class="modal__tab" id="tabRegister">Daftar Baru</button>
       </div>
       <div class="modal__body">
-        <!-- Form Login -->
-        <form id="loginForm" class="auth-form">
+        <!-- Form OTP Login (Default) -->
+        <form id="otpForm" class="auth-form">
+          <div id="otpStep1">
+            <p class="modal__desc" style="margin-bottom: 14px; font-size: 0.85rem; color: var(--gray-600);">
+              Masuk instan tanpa kata sandi. Kami akan kirimkan 6 digit kode OTP ke email Anda.
+            </p>
+            <div class="form-group">
+              <label for="otpEmail" class="form-label">Alamat Email</label>
+              <input type="email" id="otpEmail" class="input" placeholder="nama@email.com" required />
+            </div>
+            <button type="button" class="btn btn--primary btn--full" id="requestOtpBtn">Kirim Kode OTP</button>
+          </div>
+
+          <div id="otpStep2" style="display:none;">
+            <p class="modal__desc" id="otpNotice" style="margin-bottom: 14px; font-size: 0.85rem; color: var(--green-700);">
+              Kode verifikasi telah dikirim ke email Anda (berlaku 5 menit).
+            </p>
+            <div class="form-group">
+              <label for="otpCode" class="form-label">Masukkan 6 Digit OTP</label>
+              <input type="text" id="otpCode" class="input input--otp" placeholder="------" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
+            </div>
+            <div class="form-group">
+              <label for="otpName" class="form-label">Nama Anda (Opsional jika baru)</label>
+              <input type="text" id="otpName" class="input" placeholder="Nama Lengkap" />
+            </div>
+            <button type="submit" class="btn btn--primary btn--full" id="verifyOtpBtn">Verifikasi & Masuk</button>
+            <button type="button" class="btn btn--ghost btn--sm btn--full" id="otpBackBtn" style="margin-top: 8px;">Ubah Email / Kirim Ulang</button>
+          </div>
+        </form>
+
+        <!-- Form Login (Password) -->
+        <form id="loginForm" class="auth-form" style="display:none;">
           <div class="form-group">
             <label for="loginEmail" class="form-label">Email</label>
             <input type="email" id="loginEmail" class="input" placeholder="nama@email.com" required />
