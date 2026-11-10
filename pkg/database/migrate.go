@@ -14,12 +14,16 @@ func Migrate(conn *sql.DB) error {
 			name          VARCHAR(100) NOT NULL,
 			email         VARCHAR(150) NOT NULL UNIQUE,
 			password_hash VARCHAR(255) NOT NULL,
+			auth_provider VARCHAR(20)  NOT NULL DEFAULT 'local',
+			is_verified   TINYINT(1)   NOT NULL DEFAULT 1,
 			created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 		)
 	`)
 	if err != nil {
 		return err
 	}
+	addColumnIfNotExists(conn, "users", "auth_provider", "VARCHAR(20) NOT NULL DEFAULT 'local'")
+	addColumnIfNotExists(conn, "users", "is_verified", "TINYINT(1) NOT NULL DEFAULT 1")
 
 	// 2. Devices Table
 	_, err = conn.Exec(`
@@ -105,21 +109,47 @@ func Migrate(conn *sql.DB) error {
 
 	addColumnIfNotExists(conn, "pump_history", "device_id", "VARCHAR(50) NOT NULL DEFAULT 'DEV-PLB-001'")
 
-	// 5. OTP Codes Table for Email Authentication
+	// 5. Trusted Devices Table
 	_, err = conn.Exec(`
-		CREATE TABLE IF NOT EXISTS otp_codes (
-			id          INT AUTO_INCREMENT PRIMARY KEY,
-			email       VARCHAR(150) NOT NULL,
-			code        VARCHAR(10)  NOT NULL,
-			expires_at  DATETIME(3)  NOT NULL,
-			is_used     TINYINT(1)   NOT NULL DEFAULT 0,
-			created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-			INDEX idx_email_verify (email, code, is_used)
+		CREATE TABLE IF NOT EXISTS trusted_devices (
+			id           INT AUTO_INCREMENT PRIMARY KEY,
+			user_id      INT          NOT NULL,
+			device_token VARCHAR(64)  NOT NULL,
+			device_name  VARCHAR(150) NOT NULL DEFAULT 'Browser',
+			created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			last_used_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+			UNIQUE KEY uq_user_dev (user_id, device_token),
+			INDEX idx_user_dev (user_id)
 		)
 	`)
 	if err != nil {
 		return err
 	}
+
+	// 6. OTP Codes Table for Email Authentication
+	_, err = conn.Exec(`
+		CREATE TABLE IF NOT EXISTS otp_codes (
+			id          INT AUTO_INCREMENT PRIMARY KEY,
+			email       VARCHAR(150) NOT NULL,
+			code        VARCHAR(10)  NOT NULL DEFAULT '',
+			code_hash   VARCHAR(64)  NOT NULL DEFAULT '',
+			purpose     VARCHAR(30)  NOT NULL DEFAULT 'login',
+			metadata    TEXT         DEFAULT NULL,
+			attempts    INT          NOT NULL DEFAULT 0,
+			expires_at  DATETIME(3)  NOT NULL,
+			is_used     TINYINT(1)   NOT NULL DEFAULT 0,
+			created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			INDEX idx_email_purp (email, purpose, is_used)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	addColumnIfNotExists(conn, "otp_codes", "code_hash", "VARCHAR(64) NOT NULL DEFAULT ''")
+	addColumnIfNotExists(conn, "otp_codes", "purpose", "VARCHAR(30) NOT NULL DEFAULT 'login'")
+	addColumnIfNotExists(conn, "otp_codes", "metadata", "TEXT DEFAULT NULL")
+	addColumnIfNotExists(conn, "otp_codes", "attempts", "INT NOT NULL DEFAULT 0")
 
 	// Ensure simulation units have rows in system_status
 	_, _ = conn.Exec(`
@@ -130,6 +160,26 @@ func Migrate(conn *sql.DB) error {
 	`)
 
 	return nil
+}
+
+// Reset drops all application tables and executes a fresh migration with seed data.
+func Reset(conn *sql.DB) error {
+	tables := []string{
+		"otp_codes",
+		"trusted_devices",
+		"pump_history",
+		"system_status",
+		"devices",
+		"users",
+	}
+
+	for _, table := range tables {
+		if _, err := conn.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table)); err != nil {
+			return fmt.Errorf("gagal menghapus tabel %s: %w", table, err)
+		}
+	}
+
+	return Migrate(conn)
 }
 
 func addColumnIfNotExists(conn *sql.DB, table, column, colDef string) {

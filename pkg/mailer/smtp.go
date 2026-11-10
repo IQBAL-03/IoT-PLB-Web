@@ -56,20 +56,20 @@ func SendOTP(cfg config.Config, toEmail, otpCode string) error {
 <body>
   <div class="container">
     <div class="header">
-      <h1 class="brand">🌱 PlantCare IoT</h1>
+      <h1 class="brand">PlantCare IoT</h1>
       <p class="tagline">Sistem Penyiraman Tanaman Otomatis</p>
     </div>
     <p>Halo,</p>
-    <p>Gunakan kode OTP berikut untuk masuk atau mendaftar ke akun PlantCare IoT Anda:</p>
+    <p>Gunakan kode OTP berikut untuk masuk atau memverifikasi akun PlantCare IoT Anda:</p>
     <div class="code-box">
       <div class="code">%s</div>
     </div>
     <p class="notice">
-      ⏱️ Kode ini berlaku selama <strong>5 menit</strong>.<br>
-      ⚠️ Jangan bagikan kode ini kepada siapa pun demi keamanan perangkat Anda.
+      [PENTING] Kode ini berlaku selama <strong>5 menit</strong>.<br>
+      Jangan bagikan kode ini kepada siapa pun demi keamanan perangkat Anda.
     </p>
     <div class="footer">
-      © 2026 PlantCare IoT — Project Lintas Bidang Informatika PPLG
+      PlantCare IoT - Project Lintas Bidang Informatika PPLG
     </div>
   </div>
 </body>

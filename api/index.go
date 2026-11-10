@@ -48,8 +48,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	mux.HandleFunc("/api/auth/register", wrap(authH.Register))
 	mux.HandleFunc("/api/auth/login", wrap(authH.Login))
 	mux.HandleFunc("/api/auth/google", wrap(authH.Google))
-	mux.HandleFunc("/api/auth/otp/send", wrap(authH.SendOTP))
 	mux.HandleFunc("/api/auth/otp/verify", wrap(authH.VerifyOTP))
+	mux.HandleFunc("/api/auth/otp/resend", wrap(authH.ResendOTP))
 	mux.HandleFunc("/api/auth/me", wrap(authH.Me))
 
 	// Device Endpoints

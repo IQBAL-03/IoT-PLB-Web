@@ -58,10 +58,11 @@ export async function apiFetch(endpoint, options = {}) {
 
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}));
-    const errText = errorBody.error || `HTTP ${res.status}`;
-    const detail = errorBody.detail || errorBody.message || '';
-    const fullMsg = detail ? `${errText}: ${detail}` : errText;
-    throw new Error(fullMsg);
+    const message = errorBody.message || errorBody.error || `HTTP ${res.status}`;
+    const err = new Error(message);
+    err.status = res.status;
+    err.data = errorBody;
+    throw err;
   }
 
   return res.json();
