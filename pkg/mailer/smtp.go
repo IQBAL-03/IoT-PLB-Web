@@ -3,7 +3,6 @@ package mailer
 import (
 	"crypto/rand"
 	"fmt"
-	"log"
 	"math/big"
 	"net/smtp"
 	"strings"
@@ -25,12 +24,12 @@ func GenerateOTP() string {
 func SendOTP(cfg config.Config, toEmail, otpCode string) error {
 	toEmail = strings.TrimSpace(toEmail)
 	if cfg.SMTPHost == "" || cfg.SMTPUser == "" || cfg.SMTPPass == "" {
-		log.Printf("[DEV MODE OTP] SMTP belum disetel. Kode OTP untuk %s adalah: %s\n", toEmail, otpCode)
-		return nil
+		return fmt.Errorf("konfigurasi SMTP belum disetel di Environment Variables Vercel (SMTP_HOST=%q, SMTP_USER=%q)", cfg.SMTPHost, cfg.SMTPUser)
 	}
 
-	auth := smtp.PlainAuth("", cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPHost)
-	addr := fmt.Sprintf("%s:%s", cfg.SMTPHost, cfg.SMTPPort)
+	cleanPass := strings.ReplaceAll(strings.TrimSpace(cfg.SMTPPass), " ", "")
+	auth := smtp.PlainAuth("", strings.TrimSpace(cfg.SMTPUser), cleanPass, strings.TrimSpace(cfg.SMTPHost))
+	addr := fmt.Sprintf("%s:%s", strings.TrimSpace(cfg.SMTPHost), strings.TrimSpace(cfg.SMTPPort))
 
 	subject := "Subject: Kode Verifikasi Pendaftaran Akun PlantCare IoT\r\n"
 	fromHeader := fmt.Sprintf("From: %s\r\n", cfg.SMTPFrom)
