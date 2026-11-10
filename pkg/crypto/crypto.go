@@ -32,6 +32,13 @@ func HashPassword(pass string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// HashOTP computes a SHA-256 hash of an OTP code for secure, unreadable database storage.
+func HashOTP(code string) string {
+	h := sha256.New()
+	h.Write([]byte("otp_secure_salt_2026_" + strings.TrimSpace(code)))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // CreateJWT generates a signed HS256 JWT token with 30-day validity.
 func CreateJWT(uid int, email, name string, secret string) (string, error) {
 	exp := time.Now().Add(30 * 24 * time.Hour).Unix()

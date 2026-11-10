@@ -31,7 +31,7 @@ func SendOTP(cfg config.Config, toEmail, otpCode string) error {
 	auth := smtp.PlainAuth("", strings.TrimSpace(cfg.SMTPUser), cleanPass, strings.TrimSpace(cfg.SMTPHost))
 	addr := fmt.Sprintf("%s:%s", strings.TrimSpace(cfg.SMTPHost), strings.TrimSpace(cfg.SMTPPort))
 
-	subject := "Subject: Kode Verifikasi Pendaftaran Akun PlantCare IoT\r\n"
+	subject := "Subject: Kode Verifikasi Akun PlantCare IoT\r\n"
 	fromHeader := fmt.Sprintf("From: %s\r\n", cfg.SMTPFrom)
 	toHeader := fmt.Sprintf("To: %s\r\n", toEmail)
 	mimeHeader := "MIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\n\r\n"
@@ -55,20 +55,20 @@ func SendOTP(cfg config.Config, toEmail, otpCode string) error {
 <body>
   <div class="container">
     <div class="header">
-      <h1 class="brand">🌱 PlantCare IoT</h1>
+      <h1 class="brand">PlantCare IoT</h1>
       <p class="tagline">Sistem Penyiraman Tanaman Otomatis</p>
     </div>
     <p>Halo,</p>
-    <p>Gunakan kode OTP berikut untuk menyelesaikan pendaftaran akun PlantCare IoT Anda:</p>
+    <p>Gunakan kode OTP berikut untuk masuk atau memverifikasi akun PlantCare IoT Anda:</p>
     <div class="code-box">
       <div class="code">%s</div>
     </div>
     <p class="notice">
-      ⏱️ Kode ini berlaku selama <strong>5 menit</strong>.<br>
-      ⚠️ Jangan bagikan kode ini kepada siapa pun demi keamanan perangkat Anda.
+      [PENTING] Kode ini berlaku selama <strong>5 menit</strong>.<br>
+      Jangan bagikan kode ini kepada siapa pun demi keamanan perangkat Anda.
     </p>
     <div class="footer">
-      © 2026 PlantCare IoT — Project Lintas Bidang Informatika PPLG
+      PlantCare IoT - Project Lintas Bidang Informatika PPLG
     </div>
   </div>
 </body>
@@ -78,4 +78,3 @@ func SendOTP(cfg config.Config, toEmail, otpCode string) error {
 
 	return smtp.SendMail(addr, auth, cfg.SMTPUser, []string{toEmail}, msg)
 }
-

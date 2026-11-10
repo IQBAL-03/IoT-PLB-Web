@@ -32,7 +32,7 @@ export const deviceView = {
 
     sel.innerHTML = devices.map(d => `
       <option value="${d.device_id}" ${d.device_id === currentDeviceId ? 'selected' : ''}>
-        ${d.is_owner ? '🔑 [Milik Anda]' : (d.has_owner ? '🔒 [Terkunci]' : '🔓 [Tersedia]')} ${d.name} (${d.device_id})
+        ${d.is_owner ? '[Milik Anda]' : (d.has_owner ? '[Terkunci]' : '[Tersedia]')} ${d.name} (${d.device_id})
       </option>
     `).join('');
 

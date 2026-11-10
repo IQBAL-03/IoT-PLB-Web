@@ -5,62 +5,100 @@
 import { state } from '../../core/state.js';
 import { eventBus } from '../../core/events.js';
 import { showToast } from '../../utils/toast.js';
+import { getDeviceToken, getDeviceName } from '../../utils/device.js';
 import { authService } from './auth.service.js';
 import { authView } from './auth.view.js';
-import { initGoogleOAuth, requestGoogleSignIn } from './google-auth.js';
+import { initGoogleOAuth, requestGoogleSignIn, fetchGoogleUserProfile } from './google-auth.js';
 
 export const authController = {
-  /**
-   * Initializes auth event listeners and UI state.
-   */
+  activeSession: { email: '', purpose: '', name: '' },
+  cooldownInterval: null,
+  pendingGoogleAction: 'login',
+
   init() {
     this.render();
     authView.initPasswordToggles();
     this.bindEvents();
 
+    const onToken = (token) => this.handleGoogleTokenReceived(token, this.pendingGoogleAction);
     if (typeof google !== 'undefined' && google.accounts) {
-      initGoogleOAuth(this.handleGoogleTokenReceived.bind(this));
+      initGoogleOAuth(onToken);
     } else {
-      window.addEventListener('load', () => {
-        initGoogleOAuth(this.handleGoogleTokenReceived.bind(this));
-      });
+      window.addEventListener('load', () => initGoogleOAuth(onToken));
     }
   },
 
   render() {
-    authView.renderUserBadge(
-      state.user,
-      this.handleLogout.bind(this),
-      authView.openModal.bind(authView)
-    );
+    authView.renderUserBadge(state.user, this.handleLogout.bind(this), authView.openModal.bind(authView));
   },
 
   bindEvents() {
     const el = authView.elements;
-
-    if (el.closeAuthModal) el.closeAuthModal.addEventListener('click', authView.closeModal);
-    if (el.authModalBackdrop) el.authModalBackdrop.addEventListener('click', authView.closeModal);
+    if (el.closeAuthModal) el.closeAuthModal.addEventListener('click', () => authView.closeModal());
+    if (el.authModalBackdrop) el.authModalBackdrop.addEventListener('click', () => authView.closeModal());
 
     if (el.tabLogin) el.tabLogin.addEventListener('click', () => authView.switchToLoginTab());
     if (el.tabRegister) el.tabRegister.addEventListener('click', () => authView.switchToRegisterTab());
 
-    if (el.loginForm) el.loginForm.addEventListener('submit', this.handleLogin.bind(this));
-    if (el.regSubmitBtn) el.regSubmitBtn.addEventListener('click', this.handleRegisterRequestOtp.bind(this));
-    if (el.registerForm) el.registerForm.addEventListener('submit', this.handleRegisterVerifyOtp.bind(this));
-    if (el.regBackBtn) el.regBackBtn.addEventListener('click', () => authView.showRegisterStep(1));
+    if (el.linkToRegister) el.linkToRegister.addEventListener('click', (e) => { e.preventDefault(); authView.switchToRegisterTab(); });
+    if (el.linkToLogin) el.linkToLogin.addEventListener('click', (e) => { e.preventDefault(); authView.switchToLoginTab(); });
 
-    if (el.googleAuthBtn) el.googleAuthBtn.addEventListener('click', this.handleGoogleClick.bind(this));
+    if (el.loginForm) el.loginForm.addEventListener('submit', this.handleLogin.bind(this));
+    if (el.registerForm) el.registerForm.addEventListener('submit', this.handleRegister.bind(this));
+    if (el.otpVerifyForm) el.otpVerifyForm.addEventListener('submit', this.handleVerifyOtp.bind(this));
+
+    if (el.otpResendBtn) el.otpResendBtn.addEventListener('click', this.handleResendOtp.bind(this));
+    if (el.otpCancelBtn) el.otpCancelBtn.addEventListener('click', this.handleCancelOtp.bind(this));
+
+    if (el.googleAuthBtn) el.googleAuthBtn.addEventListener('click', () => this.handleGoogleClick('login'));
+    if (el.googleRegBtn) el.googleRegBtn.addEventListener('click', () => this.handleGoogleClick('register'));
   },
 
-  async handleRegisterRequestOtp(e) {
-    if (e) e.preventDefault();
+  async handleLogin(e) {
+    e.preventDefault();
+    const el = authView.elements;
+    const email = el.loginEmail ? el.loginEmail.value.trim() : '';
+    const password = el.loginPassword ? el.loginPassword.value : '';
+
+    if (!email || !password) {
+      showToast('Email dan password wajib diisi.', 'warning');
+      return;
+    }
+
+    authView.setLoginLoading(true);
+    try {
+      const res = await authService.login(email, password, getDeviceToken(), getDeviceName());
+      if (res.require_otp) {
+        this.openOtpStep(res.email || email, res.purpose || 'login_new_device', res.message);
+        return;
+      }
+      this.completeAuth(res.token, res.user, `Selamat datang kembali, ${res.user.name}!`);
+    } catch (err) {
+      if (err.data && err.data.error === 'user_not_found') {
+        showToast('Email belum terdaftar. Mengalihkan Anda ke pendaftaran akun...', 'warning');
+        authView.switchToRegisterTab(email);
+        return;
+      }
+      if (err.data && err.data.error === 'unverified_account') {
+        showToast('Akun belum menyelesaikan verifikasi OTP.', 'warning');
+        this.openOtpStep(email, 'registration', 'Akun Anda belum aktif. Masukkan kode OTP pendaftaran:');
+        return;
+      }
+      showToast(err.message || 'Login gagal.', 'error');
+    } finally {
+      authView.setLoginLoading(false);
+    }
+  },
+
+  async handleRegister(e) {
+    e.preventDefault();
     const el = authView.elements;
     const name = el.regName ? el.regName.value.trim() : '';
     const email = el.regEmail ? el.regEmail.value.trim() : '';
     const password = el.regPassword ? el.regPassword.value : '';
 
     if (!name || !email || !password) {
-      showToast('Semua kolom pendaftaran wajib diisi.', 'warning');
+      showToast('Seluruh formulir pendaftaran wajib diisi.', 'warning');
       return;
     }
     if (password.length < 6) {
@@ -68,131 +106,141 @@ export const authController = {
       return;
     }
 
-    authView.setRegisterRequestLoading(true);
+    authView.setRegisterLoading(true);
     try {
-      const res = await authService.requestRegisterOTP(name, email, password);
-      showToast(res.message || 'Kode OTP telah dikirim ke email Anda!', 'success');
-      authView.showRegisterStep(2);
+      const res = await authService.register(name, email, password, getDeviceToken(), getDeviceName());
+      this.openOtpStep(email, res.purpose || 'registration', res.message, name);
+      showToast('Kode verifikasi telah dikirimkan ke email Anda.', 'success');
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast(err.message || 'Pendaftaran gagal.', 'error');
     } finally {
-      authView.setRegisterRequestLoading(false);
+      authView.setRegisterLoading(false);
     }
   },
 
-  async handleRegisterVerifyOtp(e) {
+  async handleVerifyOtp(e) {
     e.preventDefault();
     const el = authView.elements;
-    const name = el.regName ? el.regName.value.trim() : '';
-    const email = el.regEmail ? el.regEmail.value.trim() : '';
-    const password = el.regPassword ? el.regPassword.value : '';
-    const code = el.regOtpCode ? el.regOtpCode.value.trim() : '';
+    const code = el.otpCodeInput ? el.otpCodeInput.value.trim() : '';
 
-    if (!code) {
-      showToast('Masukkan 6-digit kode OTP dari email Anda.', 'warning');
+    if (!code || code.length !== 6) {
+      showToast('Masukkan 6 digit kode OTP lengkap.', 'warning');
       return;
     }
 
-    authView.setRegisterVerifyLoading(true);
+    authView.setVerifyOtpLoading(true);
     try {
-      const res = await authService.verifyRegisterOTP(name, email, password, code);
-      state.setAuth(res.token, res.user);
-      this.render();
-      authView.closeModal();
-      showToast(`Pendaftaran berhasil! Selamat datang, ${res.user.name}!`, 'success');
-      eventBus.emit('auth:changed', state.user);
+      const res = await authService.verifyOTP(
+        this.activeSession.email,
+        code,
+        this.activeSession.purpose,
+        getDeviceToken(),
+        getDeviceName()
+      );
+      this.completeAuth(res.token, res.user, res.message || `Selamat datang, ${res.user.name}!`);
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast(err.message || 'Verifikasi OTP gagal.', 'error');
     } finally {
-      authView.setRegisterVerifyLoading(false);
+      authView.setVerifyOtpLoading(false);
     }
   },
 
-  async handleLogin(e) {
-    e.preventDefault();
-    const el = authView.elements;
-    authView.setLoginLoading(true);
-
+  async handleResendOtp() {
+    if (!this.activeSession.email) {
+      showToast('Sesi verifikasi tidak ditemukan.', 'warning');
+      return;
+    }
     try {
-      const res = await authService.login(el.loginEmail.value, el.loginPassword.value);
-      state.setAuth(res.token, res.user);
-      this.render();
-      authView.closeModal();
-      showToast(`Selamat datang kembali, ${res.user.name}!`, 'success');
-      eventBus.emit('auth:changed', state.user);
+      const res = await authService.resendOTP(this.activeSession.email, this.activeSession.purpose);
+      showToast(res.message || 'Kode OTP baru telah dikirimkan.', 'success');
+      this.startCooldown(60);
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast(err.message || 'Gagal mengirim ulang OTP.', 'error');
+    }
+  },
+
+  handleCancelOtp() {
+    clearInterval(this.cooldownInterval);
+    authView.hideOtpVerification();
+  },
+
+  openOtpStep(email, purpose, message = '', name = '') {
+    this.activeSession = { email, purpose, name };
+    authView.showOtpVerification({ email, purpose, message });
+    this.startCooldown(60);
+  },
+
+  startCooldown(seconds) {
+    clearInterval(this.cooldownInterval);
+    let remaining = seconds;
+    authView.setResendCooldown(remaining);
+    this.cooldownInterval = setInterval(() => {
+      remaining -= 1;
+      authView.setResendCooldown(remaining);
+      if (remaining <= 0) clearInterval(this.cooldownInterval);
+    }, 1000);
+  },
+
+  completeAuth(token, user, message = '') {
+    clearInterval(this.cooldownInterval);
+    state.setAuth(token, user);
+    this.render();
+    authView.closeModal();
+    if (message) showToast(message, 'success');
+    eventBus.emit('auth:changed', state.user);
+  },
+
+  async handleGoogleClick(action = 'login') {
+    this.pendingGoogleAction = action;
+    const initiated = requestGoogleSignIn((token) => this.handleGoogleTokenReceived(token, action));
+    if (initiated) return;
+
+    const promptMsg = action === 'register'
+      ? 'Daftar dengan Google:\nMasukkan email Google Anda:'
+      : 'Masuk dengan Google:\nMasukkan email Google Anda:';
+    const inputEmail = prompt(promptMsg, state.user ? state.user.email : 'user@gmail.com');
+    if (!inputEmail || !inputEmail.trim()) return;
+
+    await this.processGoogleProfile(inputEmail.trim(), inputEmail.trim().split('@')[0], action);
+  },
+
+  async handleGoogleTokenReceived(accessToken, action = 'login') {
+    const btnId = action === 'register' ? 'googleRegBtn' : 'googleAuthBtn';
+    authView.setGoogleLoading(true, btnId);
+    try {
+      const profile = await fetchGoogleUserProfile(accessToken);
+      await this.processGoogleProfile(profile.email, profile.name, action || this.pendingGoogleAction || 'login');
+    } catch (err) {
+      showToast(`Google login error: ${err.message}`, 'error');
     } finally {
-      authView.setLoginLoading(false);
+      authView.setGoogleLoading(false, btnId);
+    }
+  },
+
+  async processGoogleProfile(email, name, action) {
+    try {
+      const res = await authService.googleAuth(email, name, getDeviceToken(), getDeviceName(), action);
+      if (res.require_otp) {
+        const purpose = res.purpose || (action === 'register' ? 'registration' : 'login_new_device');
+        this.openOtpStep(res.email || email, purpose, res.message, name);
+        showToast(res.message, 'info');
+        return;
+      }
+      this.completeAuth(res.token, res.user, `Berhasil masuk sebagai ${res.user.name}!`);
+    } catch (err) {
+      if (err.data && err.data.error === 'user_not_found') {
+        showToast('Akun Google ini belum terdaftar. Mengalihkan Anda ke formulir pendaftaran...', 'info');
+        authView.switchToRegisterTab(email, name);
+        return;
+      }
+      showToast(err.message || 'Google Auth gagal.', 'error');
     }
   },
 
   handleLogout() {
     state.setAuth(null, null);
     this.render();
-    showToast('Anda telah keluar.', 'info');
+    showToast('Anda telah keluar dari akun.', 'info');
     eventBus.emit('auth:changed', null);
   },
-
-  async handleGoogleTokenReceived(accessToken) {
-    const el = authView.elements;
-    const originalText = el.googleBtnText ? el.googleBtnText.textContent : 'Masuk dengan Google';
-    authView.setGoogleLoading(true);
-
-    try {
-      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!userInfoRes.ok) throw new Error('Gagal mengambil data akun Google');
-      const googleUser = await userInfoRes.json();
-
-      const res = await authService.googleAuth(
-        googleUser.email,
-        googleUser.name || googleUser.given_name || googleUser.email.split('@')[0]
-      );
-
-      state.setAuth(res.token, res.user);
-      this.render();
-      authView.closeModal();
-      showToast(`Berhasil masuk sebagai ${res.user.name}!`, 'success');
-      eventBus.emit('auth:changed', state.user);
-    } catch (err) {
-      showToast(`Google login gagal: ${err.message}`, 'error');
-      console.error(err);
-    } finally {
-      authView.setGoogleLoading(false, originalText);
-    }
-  },
-
-  async handleGoogleClick() {
-    const initiated = requestGoogleSignIn(this.handleGoogleTokenReceived.bind(this));
-    if (initiated !== null) return;
-
-    // Fallback prompt jika script Google diblokir
-    const inputEmail = prompt(
-      'Masuk dengan Akun Google:\nMasukkan email Google Anda (contoh: user@gmail.com):',
-      state.user ? state.user.email : 'user@gmail.com'
-    );
-    if (!inputEmail || !inputEmail.trim()) return;
-
-    const email = inputEmail.trim();
-    const name = email.split('@')[0];
-    const el = authView.elements;
-    const originalText = el.googleBtnText ? el.googleBtnText.textContent : 'Masuk dengan Google';
-
-    authView.setGoogleLoading(true);
-    try {
-      const res = await authService.googleAuth(email, name);
-      state.setAuth(res.token, res.user);
-      this.render();
-      authView.closeModal();
-      showToast(`Berhasil masuk dengan Google (${res.user.email})!`, 'success');
-      eventBus.emit('auth:changed', state.user);
-    } catch (err) {
-      showToast(`Google login gagal: ${err.message}`, 'error');
-    } finally {
-      authView.setGoogleLoading(false, originalText);
-    }
-  },
 };
-
