@@ -28,5 +28,16 @@ export const deviceService = {
       }),
     });
   },
+
+  /**
+   * Unpairs/releases an owned device.
+   * @param {string} deviceId
+   */
+  async unpairDevice(deviceId) {
+    return apiFetch('/devices/unpair', {
+      method: 'POST',
+      body: JSON.stringify({ device_id: deviceId }),
+    });
+  },
 };
 

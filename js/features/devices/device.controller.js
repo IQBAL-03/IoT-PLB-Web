@@ -39,6 +39,10 @@ export const deviceController = {
     if (el.closeClaimModal) el.closeClaimModal.addEventListener('click', deviceView.closeClaimModal);
     if (el.claimModalBackdrop) el.claimModalBackdrop.addEventListener('click', deviceView.closeClaimModal);
 
+    if (el.unpairDeviceBtn) {
+      el.unpairDeviceBtn.addEventListener('click', this.handleUnpairDevice.bind(this));
+    }
+
     if (el.claimForm) {
       el.claimForm.addEventListener('submit', this.handleClaimDevice.bind(this));
     }
@@ -65,7 +69,26 @@ export const deviceController = {
     const newId = e.target.value;
     state.setCurrentDevice(newId);
     showToast(`Beralih ke unit: ${newId}`, 'info');
+    deviceView.renderSelector(state.devices, state.currentDeviceId);
     eventBus.emit('device:changed', newId);
+  },
+
+  async handleUnpairDevice() {
+    const currentId = state.currentDeviceId;
+    if (!currentId) return;
+
+    if (!confirm(`Apakah Anda yakin ingin melepas tautan unit ${currentId} dari akun Anda?`)) {
+      return;
+    }
+
+    try {
+      const res = await deviceService.unpairDevice(currentId);
+      showToast(res.message || 'Unit berhasil dilepas dari akun Anda.', 'success');
+      await this.fetchDevices();
+      eventBus.emit('device:changed', state.currentDeviceId);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   },
 
   async handleClaimDevice(e) {

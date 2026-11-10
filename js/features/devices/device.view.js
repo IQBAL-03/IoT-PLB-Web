@@ -9,6 +9,7 @@ export const deviceView = {
     return {
       deviceSelector:     $('deviceSelector'),
       addDeviceBtn:       $('addDeviceBtn'),
+      unpairDeviceBtn:    $('unpairDeviceBtn'),
       claimModal:         $('claimModal'),
       claimModalBackdrop: $('claimModalBackdrop'),
       closeClaimModal:    $('closeClaimModal'),
@@ -31,9 +32,15 @@ export const deviceView = {
 
     sel.innerHTML = devices.map(d => `
       <option value="${d.device_id}" ${d.device_id === currentDeviceId ? 'selected' : ''}>
-        ${d.is_owner ? '[Owner]' : '[Unit]'} ${d.name} (${d.device_id})
+        ${d.is_owner ? '🔑 [Milik Anda]' : (d.has_owner ? '🔒 [Terkunci]' : '🔓 [Tersedia]')} ${d.name} (${d.device_id})
       </option>
     `).join('');
+
+    const unpairBtn = $('unpairDeviceBtn');
+    if (unpairBtn) {
+      const current = devices.find(d => d.device_id === currentDeviceId);
+      unpairBtn.style.display = (current && current.is_owner) ? 'inline-flex' : 'none';
+    }
   },
 
   openClaimModal() {

@@ -37,3 +37,16 @@ type GoogleAuthReq struct {
 	Name  string `json:"name"`
 }
 
+// SendOTPReq defines payload for requesting an OTP code.
+type SendOTPReq struct {
+	Email string `json:"email"`
+}
+
+// VerifyOTPReq defines payload for verifying an OTP and signing in.
+type VerifyOTPReq struct {
+	Email string `json:"email"`
+	Code  string `json:"code"`
+	Name  string `json:"name,omitempty"`
+}
+
+

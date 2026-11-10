@@ -29,6 +29,11 @@ type Config struct {
 	AllowedOrigin     string
 	MoistureThreshold float64
 	DefaultDeviceID   string
+	SMTPHost          string
+	SMTPPort          string
+	SMTPUser          string
+	SMTPPass          string
+	SMTPFrom          string
 }
 
 // Load reads and parses configuration values from system environment variables.
@@ -61,6 +66,16 @@ func Load() Config {
 		}
 	}
 
+	smtpPort := os.Getenv("SMTP_PORT")
+	if smtpPort == "" {
+		smtpPort = "587"
+	}
+
+	smtpFrom := os.Getenv("SMTP_FROM")
+	if smtpFrom == "" {
+		smtpFrom = os.Getenv("SMTP_USER")
+	}
+
 	return Config{
 		TiDBHost:          os.Getenv("TIDB_HOST"),
 		TiDBPort:          port,
@@ -71,6 +86,11 @@ func Load() Config {
 		AllowedOrigin:     origin,
 		MoistureThreshold: threshold,
 		DefaultDeviceID:   "DEV-PLB-001",
+		SMTPHost:          os.Getenv("SMTP_HOST"),
+		SMTPPort:          smtpPort,
+		SMTPUser:          os.Getenv("SMTP_USER"),
+		SMTPPass:          os.Getenv("SMTP_PASS"),
+		SMTPFrom:          smtpFrom,
 	}
 }
 

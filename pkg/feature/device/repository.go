@@ -99,3 +99,19 @@ func (r *Repository) EnsureStatusRow(deviceID string) {
 	`, deviceID)
 }
 
+// Unpair releases device ownership so it can be claimed again.
+func (r *Repository) Unpair(deviceID string, uid int) error {
+	_, err := r.db.Exec(`
+		UPDATE devices SET user_id = NULL WHERE device_id = ? AND user_id = ?
+	`, deviceID, uid)
+	return err
+}
+
+// IsOwner returns true if user is the assigned owner of the device.
+func (r *Repository) IsOwner(deviceID string, uid int) bool {
+	var count int
+	_ = r.db.QueryRow("SELECT COUNT(*) FROM devices WHERE device_id = ? AND user_id = ?", deviceID, uid).Scan(&count)
+	return count > 0
+}
+
+

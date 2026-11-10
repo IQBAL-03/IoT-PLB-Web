@@ -11,9 +11,20 @@ export const authView = {
       authModal:          $('authModal'),
       authModalBackdrop:  $('authModalBackdrop'),
       closeAuthModal:     $('closeAuthModal'),
+      tabOtp:             $('tabOtp'),
       tabLogin:           $('tabLogin'),
       tabRegister:        $('tabRegister'),
       authModalTitle:     $('authModalTitle'),
+      otpForm:            $('otpForm'),
+      otpStep1:           $('otpStep1'),
+      otpStep2:           $('otpStep2'),
+      otpEmail:           $('otpEmail'),
+      otpCode:            $('otpCode'),
+      otpName:            $('otpName'),
+      requestOtpBtn:      $('requestOtpBtn'),
+      verifyOtpBtn:       $('verifyOtpBtn'),
+      otpBackBtn:         $('otpBackBtn'),
+      otpNotice:          $('otpNotice'),
       loginForm:          $('loginForm'),
       loginEmail:         $('loginEmail'),
       loginPassword:      $('loginPassword'),
@@ -70,10 +81,24 @@ export const authView = {
     modal.setAttribute('aria-hidden', 'true');
   },
 
+  switchToOtpTab() {
+    const el = this.elements;
+    if (el.tabOtp) el.tabOtp.classList.add('modal__tab--active');
+    if (el.tabLogin) el.tabLogin.classList.remove('modal__tab--active');
+    if (el.tabRegister) el.tabRegister.classList.remove('modal__tab--active');
+    if (el.otpForm) el.otpForm.style.display = 'flex';
+    if (el.loginForm) el.loginForm.style.display = 'none';
+    if (el.registerForm) el.registerForm.style.display = 'none';
+    if (el.authModalTitle) el.authModalTitle.textContent = 'Masuk dengan OTP';
+    if (el.googleBtnText) el.googleBtnText.textContent = 'Masuk dengan Google';
+  },
+
   switchToLoginTab() {
     const el = this.elements;
     if (el.tabLogin) el.tabLogin.classList.add('modal__tab--active');
+    if (el.tabOtp) el.tabOtp.classList.remove('modal__tab--active');
     if (el.tabRegister) el.tabRegister.classList.remove('modal__tab--active');
+    if (el.otpForm) el.otpForm.style.display = 'none';
     if (el.loginForm) el.loginForm.style.display = 'flex';
     if (el.registerForm) el.registerForm.style.display = 'none';
     if (el.authModalTitle) el.authModalTitle.textContent = 'Masuk ke Akun';
@@ -83,11 +108,39 @@ export const authView = {
   switchToRegisterTab() {
     const el = this.elements;
     if (el.tabRegister) el.tabRegister.classList.add('modal__tab--active');
+    if (el.tabOtp) el.tabOtp.classList.remove('modal__tab--active');
     if (el.tabLogin) el.tabLogin.classList.remove('modal__tab--active');
+    if (el.otpForm) el.otpForm.style.display = 'none';
     if (el.loginForm) el.loginForm.style.display = 'none';
     if (el.registerForm) el.registerForm.style.display = 'flex';
     if (el.authModalTitle) el.authModalTitle.textContent = 'Daftar Akun Baru';
     if (el.googleBtnText) el.googleBtnText.textContent = 'Daftar dengan Google';
+  },
+
+  showOtpStep(step) {
+    const el = this.elements;
+    if (step === 2) {
+      if (el.otpStep1) el.otpStep1.style.display = 'none';
+      if (el.otpStep2) el.otpStep2.style.display = 'block';
+      if (el.otpCode) el.otpCode.focus();
+    } else {
+      if (el.otpStep1) el.otpStep1.style.display = 'block';
+      if (el.otpStep2) el.otpStep2.style.display = 'none';
+    }
+  },
+
+  setRequestOtpLoading(loading) {
+    const btn = this.elements.requestOtpBtn;
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Mengirim Kode...' : 'Kirim Kode OTP';
+  },
+
+  setVerifyOtpLoading(loading) {
+    const btn = this.elements.verifyOtpBtn;
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Memverifikasi...' : 'Verifikasi & Masuk';
   },
 
   setLoginLoading(loading) {

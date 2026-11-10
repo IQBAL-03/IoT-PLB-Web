@@ -114,3 +114,21 @@ func (r *Repository) WriteMode(deviceID, mode string) error {
 	`, deviceID, mode)
 	return err
 }
+
+// CheckOwnership checks if a user is the authorized owner of a device.
+// Returns (isOwner bool, hasOwner bool, err error)
+func (r *Repository) CheckOwnership(deviceID string, userID *int) (bool, bool, error) {
+	var ownerID sql.NullInt64
+	err := r.db.QueryRow("SELECT user_id FROM devices WHERE device_id = ? LIMIT 1", deviceID).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+
+	hasOwner := ownerID.Valid
+	isOwner := hasOwner && userID != nil && int(ownerID.Int64) == *userID
+	return isOwner, hasOwner, nil
+}
+
