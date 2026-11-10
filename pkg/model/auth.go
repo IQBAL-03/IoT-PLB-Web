@@ -25,6 +25,14 @@ type RegisterReq struct {
 	Password string `json:"password"`
 }
 
+// VerifyRegisterOTPReq defines payload for verifying OTP and creating the user account.
+type VerifyRegisterOTPReq struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Code     string `json:"code"`
+}
+
 // LoginReq defines credentials for email/password authentication.
 type LoginReq struct {
 	Email    string `json:"email"`
@@ -42,11 +50,5 @@ type SendOTPReq struct {
 	Email string `json:"email"`
 }
 
-// VerifyOTPReq defines payload for verifying an OTP and signing in.
-type VerifyOTPReq struct {
-	Email string `json:"email"`
-	Code  string `json:"code"`
-	Name  string `json:"name,omitempty"`
-}
 
 

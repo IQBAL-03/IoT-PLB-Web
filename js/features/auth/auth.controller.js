@@ -41,64 +41,70 @@ export const authController = {
     if (el.closeAuthModal) el.closeAuthModal.addEventListener('click', authView.closeModal);
     if (el.authModalBackdrop) el.authModalBackdrop.addEventListener('click', authView.closeModal);
 
-    if (el.tabOtp) el.tabOtp.addEventListener('click', () => authView.switchToOtpTab());
     if (el.tabLogin) el.tabLogin.addEventListener('click', () => authView.switchToLoginTab());
     if (el.tabRegister) el.tabRegister.addEventListener('click', () => authView.switchToRegisterTab());
 
-    if (el.requestOtpBtn) el.requestOtpBtn.addEventListener('click', this.handleRequestOtp.bind(this));
-    if (el.otpForm) el.otpForm.addEventListener('submit', this.handleVerifyOtp.bind(this));
-    if (el.otpBackBtn) el.otpBackBtn.addEventListener('click', () => authView.showOtpStep(1));
-
     if (el.loginForm) el.loginForm.addEventListener('submit', this.handleLogin.bind(this));
-    if (el.registerForm) el.registerForm.addEventListener('submit', this.handleRegister.bind(this));
+    if (el.regSubmitBtn) el.regSubmitBtn.addEventListener('click', this.handleRegisterRequestOtp.bind(this));
+    if (el.registerForm) el.registerForm.addEventListener('submit', this.handleRegisterVerifyOtp.bind(this));
+    if (el.regBackBtn) el.regBackBtn.addEventListener('click', () => authView.showRegisterStep(1));
+
     if (el.googleAuthBtn) el.googleAuthBtn.addEventListener('click', this.handleGoogleClick.bind(this));
   },
 
-  async handleRequestOtp(e) {
+  async handleRegisterRequestOtp(e) {
     if (e) e.preventDefault();
     const el = authView.elements;
-    const email = el.otpEmail ? el.otpEmail.value.trim() : '';
-    if (!email) {
-      showToast('Masukkan alamat email Anda terlebih dahulu.', 'warning');
+    const name = el.regName ? el.regName.value.trim() : '';
+    const email = el.regEmail ? el.regEmail.value.trim() : '';
+    const password = el.regPassword ? el.regPassword.value : '';
+
+    if (!name || !email || !password) {
+      showToast('Semua kolom pendaftaran wajib diisi.', 'warning');
+      return;
+    }
+    if (password.length < 6) {
+      showToast('Password minimal 6 karakter.', 'warning');
       return;
     }
 
-    authView.setRequestOtpLoading(true);
+    authView.setRegisterRequestLoading(true);
     try {
-      const res = await authService.sendOTP(email);
-      showToast(res.message || 'Kode OTP telah dikirimkan ke email Anda!', 'success');
-      authView.showOtpStep(2);
+      const res = await authService.requestRegisterOTP(name, email, password);
+      showToast(res.message || 'Kode OTP telah dikirim ke email Anda!', 'success');
+      authView.showRegisterStep(2);
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
-      authView.setRequestOtpLoading(false);
+      authView.setRegisterRequestLoading(false);
     }
   },
 
-  async handleVerifyOtp(e) {
+  async handleRegisterVerifyOtp(e) {
     e.preventDefault();
     const el = authView.elements;
-    const email = el.otpEmail ? el.otpEmail.value.trim() : '';
-    const code = el.otpCode ? el.otpCode.value.trim() : '';
-    const name = el.otpName ? el.otpName.value.trim() : '';
+    const name = el.regName ? el.regName.value.trim() : '';
+    const email = el.regEmail ? el.regEmail.value.trim() : '';
+    const password = el.regPassword ? el.regPassword.value : '';
+    const code = el.regOtpCode ? el.regOtpCode.value.trim() : '';
 
-    if (!email || !code) {
-      showToast('Email dan 6-digit kode OTP wajib diisi.', 'warning');
+    if (!code) {
+      showToast('Masukkan 6-digit kode OTP dari email Anda.', 'warning');
       return;
     }
 
-    authView.setVerifyOtpLoading(true);
+    authView.setRegisterVerifyLoading(true);
     try {
-      const res = await authService.verifyOTP(email, code, name);
+      const res = await authService.verifyRegisterOTP(name, email, password, code);
       state.setAuth(res.token, res.user);
       this.render();
       authView.closeModal();
-      showToast(`Berhasil masuk! Selamat datang, ${res.user.name}!`, 'success');
+      showToast(`Pendaftaran berhasil! Selamat datang, ${res.user.name}!`, 'success');
       eventBus.emit('auth:changed', state.user);
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
-      authView.setVerifyOtpLoading(false);
+      authView.setRegisterVerifyLoading(false);
     }
   },
 
@@ -118,25 +124,6 @@ export const authController = {
       showToast(err.message, 'error');
     } finally {
       authView.setLoginLoading(false);
-    }
-  },
-
-  async handleRegister(e) {
-    e.preventDefault();
-    const el = authView.elements;
-    authView.setRegisterLoading(true);
-
-    try {
-      const res = await authService.register(el.regName.value, el.regEmail.value, el.regPassword.value);
-      state.setAuth(res.token, res.user);
-      this.render();
-      authView.closeModal();
-      showToast(`Akun berhasil dibuat! Halo, ${res.user.name}!`, 'success');
-      eventBus.emit('auth:changed', state.user);
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      authView.setRegisterLoading(false);
     }
   },
 
