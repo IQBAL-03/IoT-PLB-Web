@@ -76,7 +76,10 @@ func (h *Handler) dispatchRegistrationOTP(w http.ResponseWriter, email, name, pa
 		return
 	}
 
-	_ = mailer.SendOTP(h.cfg, email, otpCode)
+	if err := mailer.SendOTP(h.cfg, email, otpCode); err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal mengirim email OTP: "+err.Error())
+		return
+	}
 
 	response.JSON(w, http.StatusOK, map[string]any{
 		"ok":          true,
