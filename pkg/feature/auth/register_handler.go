@@ -87,3 +87,13 @@ func (h *Handler) dispatchRegistrationOTP(w http.ResponseWriter, email, name, pa
 	})
 }
 
+// RegisterRequestOTP is an alias for Register to maintain backwards compatibility.
+func (h *Handler) RegisterRequestOTP(w http.ResponseWriter, r *http.Request) {
+	h.Register(w, r)
+}
+
+// RegisterVerifyOTP is an alias for VerifyOTP to maintain backwards compatibility.
+func (h *Handler) RegisterVerifyOTP(w http.ResponseWriter, r *http.Request) {
+	h.VerifyOTP(w, r)
+}
+

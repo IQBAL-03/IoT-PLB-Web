@@ -36,6 +36,7 @@ export const authController = {
     if (el.closeAuthModal) el.closeAuthModal.addEventListener('click', () => authView.closeModal());
     if (el.authModalBackdrop) el.authModalBackdrop.addEventListener('click', () => authView.closeModal());
 
+<<<<<<< HEAD
     if (el.tabLogin) el.tabLogin.addEventListener('click', () => authView.switchToLoginTab());
     if (el.tabRegister) el.tabRegister.addEventListener('click', () => authView.switchToRegisterTab());
 
@@ -51,6 +52,76 @@ export const authController = {
 
     if (el.googleAuthBtn) el.googleAuthBtn.addEventListener('click', () => this.handleGoogleClick('login'));
     if (el.googleRegBtn) el.googleRegBtn.addEventListener('click', () => this.handleGoogleClick('register'));
+=======
+    if (el.closeAuthModal) el.closeAuthModal.addEventListener('click', authView.closeModal);
+    if (el.authModalBackdrop) el.authModalBackdrop.addEventListener('click', authView.closeModal);
+
+    if (el.tabLogin) el.tabLogin.addEventListener('click', () => authView.switchToLoginTab());
+    if (el.tabRegister) el.tabRegister.addEventListener('click', () => authView.switchToRegisterTab());
+
+    if (el.loginForm) el.loginForm.addEventListener('submit', this.handleLogin.bind(this));
+    if (el.regSubmitBtn) el.regSubmitBtn.addEventListener('click', this.handleRegisterRequestOtp.bind(this));
+    if (el.registerForm) el.registerForm.addEventListener('submit', this.handleRegisterVerifyOtp.bind(this));
+    if (el.regBackBtn) el.regBackBtn.addEventListener('click', () => authView.showRegisterStep(1));
+
+    if (el.googleAuthBtn) el.googleAuthBtn.addEventListener('click', this.handleGoogleClick.bind(this));
+  },
+
+  async handleRegisterRequestOtp(e) {
+    if (e) e.preventDefault();
+    const el = authView.elements;
+    const name = el.regName ? el.regName.value.trim() : '';
+    const email = el.regEmail ? el.regEmail.value.trim() : '';
+    const password = el.regPassword ? el.regPassword.value : '';
+
+    if (!name || !email || !password) {
+      showToast('Semua kolom pendaftaran wajib diisi.', 'warning');
+      return;
+    }
+    if (password.length < 6) {
+      showToast('Password minimal 6 karakter.', 'warning');
+      return;
+    }
+
+    authView.setRegisterRequestLoading(true);
+    try {
+      const res = await authService.requestRegisterOTP(name, email, password);
+      showToast(res.message || 'Kode OTP telah dikirim ke email Anda!', 'success');
+      authView.showRegisterStep(2);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      authView.setRegisterRequestLoading(false);
+    }
+  },
+
+  async handleRegisterVerifyOtp(e) {
+    e.preventDefault();
+    const el = authView.elements;
+    const name = el.regName ? el.regName.value.trim() : '';
+    const email = el.regEmail ? el.regEmail.value.trim() : '';
+    const password = el.regPassword ? el.regPassword.value : '';
+    const code = el.regOtpCode ? el.regOtpCode.value.trim() : '';
+
+    if (!code) {
+      showToast('Masukkan 6-digit kode OTP dari email Anda.', 'warning');
+      return;
+    }
+
+    authView.setRegisterVerifyLoading(true);
+    try {
+      const res = await authService.verifyRegisterOTP(name, email, password, code);
+      state.setAuth(res.token, res.user);
+      this.render();
+      authView.closeModal();
+      showToast(`Pendaftaran berhasil! Selamat datang, ${res.user.name}!`, 'success');
+      eventBus.emit('auth:changed', state.user);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      authView.setRegisterVerifyLoading(false);
+    }
+>>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
   },
 
   async handleLogin(e) {
@@ -89,6 +160,7 @@ export const authController = {
     }
   },
 
+<<<<<<< HEAD
   async handleRegister(e) {
     e.preventDefault();
     const el = authView.elements;
@@ -232,6 +304,8 @@ export const authController = {
     }
   },
 
+=======
+>>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
   handleLogout() {
     state.setAuth(null, null);
     this.render();

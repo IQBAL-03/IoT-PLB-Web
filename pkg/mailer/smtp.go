@@ -32,7 +32,7 @@ func SendOTP(cfg config.Config, toEmail, otpCode string) error {
 	auth := smtp.PlainAuth("", cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPHost)
 	addr := fmt.Sprintf("%s:%s", cfg.SMTPHost, cfg.SMTPPort)
 
-	subject := "Subject: Kode Verifikasi OTP PlantCare IoT\r\n"
+	subject := "Subject: Kode Verifikasi Pendaftaran Akun PlantCare IoT\r\n"
 	fromHeader := fmt.Sprintf("From: %s\r\n", cfg.SMTPFrom)
 	toHeader := fmt.Sprintf("To: %s\r\n", toEmail)
 	mimeHeader := "MIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\n\r\n"
@@ -60,7 +60,11 @@ func SendOTP(cfg config.Config, toEmail, otpCode string) error {
       <p class="tagline">Sistem Penyiraman Tanaman Otomatis</p>
     </div>
     <p>Halo,</p>
+<<<<<<< HEAD
     <p>Gunakan kode OTP berikut untuk masuk atau memverifikasi akun PlantCare IoT Anda:</p>
+=======
+    <p>Gunakan kode OTP berikut untuk menyelesaikan pendaftaran akun PlantCare IoT Anda:</p>
+>>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
     <div class="code-box">
       <div class="code">%s</div>
     </div>

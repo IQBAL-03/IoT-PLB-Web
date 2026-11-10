@@ -46,6 +46,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	// Auth Endpoints
 	mux.HandleFunc("/api/auth/register", wrap(authH.Register))
+	mux.HandleFunc("/api/auth/register/request-otp", wrap(authH.RegisterRequestOTP))
+	mux.HandleFunc("/api/auth/register/verify-otp", wrap(authH.RegisterVerifyOTP))
 	mux.HandleFunc("/api/auth/login", wrap(authH.Login))
 	mux.HandleFunc("/api/auth/google", wrap(authH.Google))
 	mux.HandleFunc("/api/auth/otp/verify", wrap(authH.VerifyOTP))

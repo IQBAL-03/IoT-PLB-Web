@@ -52,6 +52,14 @@ type RegisterReq struct {
 	DeviceName  string `json:"device_name"`
 }
 
+// VerifyRegisterOTPReq defines payload for verifying OTP and creating the user account.
+type VerifyRegisterOTPReq struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Code     string `json:"code"`
+}
+
 // LoginReq defines credentials for email/password authentication.
 type LoginReq struct {
 	Email       string `json:"email"`
@@ -69,6 +77,7 @@ type GoogleAuthReq struct {
 	Action      string `json:"action,omitempty"` // "login" or "register"
 }
 
+<<<<<<< HEAD
 // VerifyOTPReq defines payload for verifying an OTP code.
 type VerifyOTPReq struct {
 	Email       string `json:"email"`
@@ -77,6 +86,13 @@ type VerifyOTPReq struct {
 	DeviceToken string `json:"device_token"`
 	DeviceName  string `json:"device_name"`
 }
+=======
+// SendOTPReq defines payload for requesting an OTP code.
+type SendOTPReq struct {
+	Email string `json:"email"`
+}
+
+>>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
 
 // ResendOTPReq defines payload for requesting a new OTP code.
 type ResendOTPReq struct {

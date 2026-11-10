@@ -29,9 +29,12 @@ func (h *Handler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	code := strings.TrimSpace(req.Code)
 	purpose := strings.TrimSpace(req.Purpose)
+	if purpose == "" {
+		purpose = "registration"
+	}
 
-	if email == "" || code == "" || purpose == "" {
-		response.Error(w, http.StatusBadRequest, "Email, kode OTP, dan jenis verifikasi wajib diisi.")
+	if email == "" || code == "" {
+		response.Error(w, http.StatusBadRequest, "Email dan kode OTP wajib diisi.")
 		return
 	}
 
