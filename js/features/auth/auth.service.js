@@ -25,24 +25,16 @@ export const authService = {
   },
 
   /**
-<<<<<<< HEAD
-   * Initiates account registration.
-=======
-   * Requests an OTP code for new user registration.
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
+   * Initiates account registration by sending OTP to email.
+   * Backend handles rate limiting and OTP generation.
    * @param {string} name
    * @param {string} email
    * @param {string} password
    * @param {string} deviceToken
    * @param {string} deviceName
    */
-<<<<<<< HEAD
   async register(name, email, password, deviceToken = '', deviceName = '') {
     return apiFetch('/auth/register', {
-=======
-  async requestRegisterOTP(name, email, password) {
-    return apiFetch('/auth/register/request-otp', {
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
       method: 'POST',
       body: JSON.stringify({
         name,
@@ -55,25 +47,8 @@ export const authService = {
   },
 
   /**
-<<<<<<< HEAD
    * Authenticates using Google OAuth profile data.
-=======
-   * Verifies registration OTP code and completes account creation.
-   * @param {string} name
-   * @param {string} email
-   * @param {string} password
-   * @param {string} code
-   */
-  async verifyRegisterOTP(name, email, password, code) {
-    return apiFetch('/auth/register/verify-otp', {
-      method: 'POST',
-      body: JSON.stringify({ name, email, password, code }),
-    });
-  },
-
-  /**
-   * Authenticates using Google profile data.
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
+   * Backend determines whether to log in, register, or require OTP.
    * @param {string} email
    * @param {string} name
    * @param {string} deviceToken
@@ -94,11 +69,10 @@ export const authService = {
   },
 
   /**
-<<<<<<< HEAD
    * Verifies an OTP code for registration or new device trust.
    * @param {string} email
    * @param {string} code
-   * @param {string} purpose
+   * @param {string} purpose - "registration", "login_new_device", or "google_registration"
    * @param {string} deviceToken
    * @param {string} deviceName
    */
@@ -116,7 +90,7 @@ export const authService = {
   },
 
   /**
-   * Requests a new OTP code if expired or cooldown has elapsed.
+   * Requests a new OTP code if the cooldown period has elapsed.
    * @param {string} email
    * @param {string} purpose
    */
@@ -128,10 +102,7 @@ export const authService = {
   },
 
   /**
-   * Fetches the active authenticated user profile.
-=======
-   * Fetches active user session.
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
+   * Fetches the active authenticated user profile from token.
    */
   async getMe() {
     return apiFetch('/auth/me');

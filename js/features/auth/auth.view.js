@@ -11,18 +11,12 @@ export const authView = {
       authModal:          $('authModal'),
       authModalBackdrop:  $('authModalBackdrop'),
       closeAuthModal:     $('closeAuthModal'),
-<<<<<<< HEAD
       authModalTabs:      $('authModalTabs'),
       authModalTitle:     $('authModalTitle'),
 
       tabLogin:           $('tabLogin'),
       tabRegister:        $('tabRegister'),
 
-=======
-      tabLogin:           $('tabLogin'),
-      tabRegister:        $('tabRegister'),
-      authModalTitle:     $('authModalTitle'),
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
       loginForm:          $('loginForm'),
       loginEmail:         $('loginEmail'),
       loginPassword:      $('loginPassword'),
@@ -31,22 +25,13 @@ export const authView = {
       linkToRegister:     $('linkToRegister'),
 
       registerForm:       $('registerForm'),
-      regStep1:           $('regStep1'),
-      regStep2:           $('regStep2'),
       regName:            $('regName'),
       regEmail:           $('regEmail'),
       regPassword:        $('regPassword'),
       regSubmitBtn:       $('regSubmitBtn'),
-<<<<<<< HEAD
       toggleRegPassword:  $('toggleRegPassword'),
       linkToLogin:        $('linkToLogin'),
 
-=======
-      regOtpNotice:       $('regOtpNotice'),
-      regOtpCode:         $('regOtpCode'),
-      regVerifyBtn:       $('regVerifyBtn'),
-      regBackBtn:         $('regBackBtn'),
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
       googleAuthBtn:      $('googleAuthBtn'),
       googleBtnText:      $('googleBtnText'),
       googleRegBtn:       $('googleRegBtn'),
@@ -112,10 +97,7 @@ export const authView = {
     if (!modal) return;
     modal.style.display = 'none';
     modal.setAttribute('aria-hidden', 'true');
-<<<<<<< HEAD
     this.hideOtpVerification();
-=======
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
   },
 
   switchToLoginTab() {
@@ -136,7 +118,6 @@ export const authView = {
     if (el.loginForm) el.loginForm.style.display = 'none';
     if (el.registerForm) el.registerForm.style.display = 'flex';
     if (el.authModalTitle) el.authModalTitle.textContent = 'Daftar Akun Baru';
-<<<<<<< HEAD
 
     if (prefillEmail && el.regEmail) {
       el.regEmail.value = prefillEmail;
@@ -149,6 +130,13 @@ export const authView = {
     }
   },
 
+  /**
+   * Displays the OTP verification overlay, hiding other forms.
+   * @param {object} opts
+   * @param {string} opts.email
+   * @param {string} opts.purpose
+   * @param {string} [opts.message]
+   */
   showOtpVerification({ email, purpose, message = '' }) {
     const el = this.elements;
     if (el.authModalTabs) el.authModalTabs.style.display = 'none';
@@ -178,33 +166,15 @@ export const authView = {
     }
   },
 
+  /**
+   * Hides the OTP overlay and restores the tab bar.
+   */
   hideOtpVerification() {
     const el = this.elements;
     if (el.otpSection) el.otpSection.style.display = 'none';
     if (el.authModalTabs) el.authModalTabs.style.display = 'flex';
   },
 
-=======
-    if (el.googleBtnText) el.googleBtnText.textContent = 'Daftar dengan Google';
-    this.showRegisterStep(1);
-  },
-
-  showRegisterStep(step) {
-    const el = this.elements;
-    if (step === 2) {
-      if (el.regStep1) el.regStep1.style.display = 'none';
-      if (el.regStep2) el.regStep2.style.display = 'block';
-      if (el.regOtpCode) {
-        el.regOtpCode.value = '';
-        el.regOtpCode.focus();
-      }
-    } else {
-      if (el.regStep1) el.regStep1.style.display = 'block';
-      if (el.regStep2) el.regStep2.style.display = 'none';
-    }
-  },
-
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
   setLoginLoading(loading) {
     const btn = this.elements.loginSubmitBtn;
     if (!btn) return;
@@ -212,31 +182,24 @@ export const authView = {
     btn.textContent = loading ? 'Memverifikasi...' : 'Masuk';
   },
 
-  setRegisterRequestLoading(loading) {
+  setRegisterLoading(loading) {
     const btn = this.elements.regSubmitBtn;
     if (!btn) return;
     btn.disabled = loading;
-<<<<<<< HEAD
-    btn.textContent = loading ? 'Memproses Pendaftaran...' : 'Daftar Akun';
-=======
-    btn.textContent = loading ? 'Mengirim OTP...' : 'Daftar Akun (Kirim OTP)';
+    btn.textContent = loading ? 'Memproses...' : 'Daftar Akun';
   },
 
-  setRegisterVerifyLoading(loading) {
-    const btn = this.elements.regVerifyBtn;
-    if (!btn) return;
-    btn.disabled = loading;
-    btn.textContent = loading ? 'Membuat Akun...' : 'Verifikasi & Buat Akun';
->>>>>>> 40a6cbec65d125425b1b30fe8365ff70bdec4ba2
-  },
-
-  setGoogleLoading(loading, btnId = 'googleAuthBtn', originalText = 'Masuk dengan Google') {
+  /**
+   * @param {boolean} loading
+   * @param {string} [btnId] - ID of the Google button to update
+   */
+  setGoogleLoading(loading, btnId = 'googleAuthBtn') {
     const btn = $(btnId);
     if (!btn) return;
     btn.disabled = loading;
     const textSpan = btn.querySelector('span');
     if (textSpan) {
-      textSpan.textContent = loading ? 'Menghubungkan ke Google...' : originalText;
+      textSpan.textContent = loading ? 'Menghubungkan ke Google...' : textSpan.dataset.original || textSpan.textContent;
     }
   },
 
