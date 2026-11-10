@@ -8,19 +8,12 @@ import { showToast } from '../../utils/toast.js';
 import { getDeviceToken, getDeviceName } from '../../utils/device.js';
 import { authService } from './auth.service.js';
 import { authView } from './auth.view.js';
-import { initGoogleOAuth, requestGoogleSignIn } from './google-auth.js';
+import { initGoogleOAuth, requestGoogleSignIn, fetchGoogleUserProfile } from './google-auth.js';
 
 export const authController = {
-  activeSession: {
-    email: '',
-    purpose: '',
-    name: '',
-  },
+  activeSession: { email: '', purpose: '', name: '' },
   cooldownInterval: null,
 
-  /**
-   * Initializes auth event listeners and UI state.
-   */
   init() {
     this.render();
     authView.initPasswordToggles();
@@ -30,60 +23,34 @@ export const authController = {
     if (typeof google !== 'undefined' && google.accounts) {
       initGoogleOAuth(onToken);
     } else {
-      window.addEventListener('load', () => {
-        initGoogleOAuth(onToken);
-      });
+      window.addEventListener('load', () => initGoogleOAuth(onToken));
     }
   },
 
   render() {
-    authView.renderUserBadge(
-      state.user,
-      this.handleLogout.bind(this),
-      authView.openModal.bind(authView)
-    );
+    authView.renderUserBadge(state.user, this.handleLogout.bind(this), authView.openModal.bind(authView));
   },
 
   bindEvents() {
     const el = authView.elements;
-
     if (el.closeAuthModal) el.closeAuthModal.addEventListener('click', () => authView.closeModal());
     if (el.authModalBackdrop) el.authModalBackdrop.addEventListener('click', () => authView.closeModal());
 
-    // Tabs
     if (el.tabLogin) el.tabLogin.addEventListener('click', () => authView.switchToLoginTab());
     if (el.tabRegister) el.tabRegister.addEventListener('click', () => authView.switchToRegisterTab());
 
-    // Switch links
-    if (el.linkToRegister) {
-      el.linkToRegister.addEventListener('click', (e) => {
-        e.preventDefault();
-        authView.switchToRegisterTab();
-      });
-    }
-    if (el.linkToLogin) {
-      el.linkToLogin.addEventListener('click', (e) => {
-        e.preventDefault();
-        authView.switchToLoginTab();
-      });
-    }
+    if (el.linkToRegister) el.linkToRegister.addEventListener('click', (e) => { e.preventDefault(); authView.switchToRegisterTab(); });
+    if (el.linkToLogin) el.linkToLogin.addEventListener('click', (e) => { e.preventDefault(); authView.switchToLoginTab(); });
 
-    // Form Submissions
     if (el.loginForm) el.loginForm.addEventListener('submit', this.handleLogin.bind(this));
     if (el.registerForm) el.registerForm.addEventListener('submit', this.handleRegister.bind(this));
     if (el.otpVerifyForm) el.otpVerifyForm.addEventListener('submit', this.handleVerifyOtp.bind(this));
 
-    // OTP actions
     if (el.otpResendBtn) el.otpResendBtn.addEventListener('click', this.handleResendOtp.bind(this));
     if (el.otpCancelBtn) el.otpCancelBtn.addEventListener('click', this.handleCancelOtp.bind(this));
 
-    // Google Buttons
-    if (el.googleAuthBtn) {
-      el.googleAuthBtn.addEventListener('click', () => this.handleGoogleClick('login'));
-    }
-    if (el.googleRegBtn) {
-      el.googleRegBtn.addEventListener('click', () => this.handleGoogleClick('register'));
-    }
+    if (el.googleAuthBtn) el.googleAuthBtn.addEventListener('click', () => this.handleGoogleClick('login'));
+    if (el.googleRegBtn) el.googleRegBtn.addEventListener('click', () => this.handleGoogleClick('register'));
   },
 
   async handleLogin(e) {
@@ -100,50 +67,22 @@ export const authController = {
     authView.setLoginLoading(true);
     try {
       const res = await authService.login(email, password, getDeviceToken(), getDeviceName());
-
-      // Check if new device verification is required
       if (res.require_otp) {
-        this.activeSession = {
-          email: res.email || email,
-          purpose: res.purpose || 'login_new_device',
-          name: '',
-        };
-        authView.showOtpVerification({
-          email: this.activeSession.email,
-          purpose: this.activeSession.purpose,
-          message: res.message,
-        });
-        this.startCooldown(60);
-        showToast(res.message, 'info');
+        this.openOtpStep(res.email || email, res.purpose || 'login_new_device', res.message);
         return;
       }
-
-      // Direct login on recognized device
-      state.setAuth(res.token, res.user);
-      this.render();
-      authView.closeModal();
-      showToast(`Selamat datang kembali, ${res.user.name}!`, 'success');
-      eventBus.emit('auth:changed', state.user);
+      this.completeAuth(res.token, res.user, `Selamat datang kembali, ${res.user.name}!`);
     } catch (err) {
-      // 1. If email is not found, direct user to registration
       if (err.data && err.data.error === 'user_not_found') {
-        showToast('Email belum terdaftar. Mengarahkan Anda ke pendaftaran akun...', 'warning');
+        showToast('Email belum terdaftar. Mengalihkan Anda ke pendaftaran akun...', 'warning');
         authView.switchToRegisterTab(email);
         return;
       }
-      // 2. If unverified account, direct to OTP verification
       if (err.data && err.data.error === 'unverified_account') {
-        showToast('Akun belum menyelesaikan verifikasi OTP. Silakan verifikasi akun Anda.', 'warning');
-        this.activeSession = { email, purpose: 'registration', name: '' };
-        authView.showOtpVerification({
-          email,
-          purpose: 'registration',
-          message: 'Akun Anda belum aktif. Masukkan kode OTP pendaftaran Anda:',
-        });
-        this.startCooldown(60);
+        showToast('Akun belum menyelesaikan verifikasi OTP.', 'warning');
+        this.openOtpStep(email, 'registration', 'Akun Anda belum aktif. Masukkan kode OTP pendaftaran:');
         return;
       }
-
       showToast(err.message || 'Login gagal.', 'error');
     } finally {
       authView.setLoginLoading(false);
@@ -169,19 +108,7 @@ export const authController = {
     authView.setRegisterLoading(true);
     try {
       const res = await authService.register(name, email, password, getDeviceToken(), getDeviceName());
-
-      this.activeSession = {
-        email,
-        purpose: res.purpose || 'registration',
-        name,
-      };
-
-      authView.showOtpVerification({
-        email,
-        purpose: this.activeSession.purpose,
-        message: res.message,
-      });
-      this.startCooldown(60);
+      this.openOtpStep(email, res.purpose || 'registration', res.message, name);
       showToast('Kode verifikasi telah dikirimkan ke email Anda.', 'success');
     } catch (err) {
       showToast(err.message || 'Pendaftaran gagal.', 'error');
@@ -209,13 +136,7 @@ export const authController = {
         getDeviceToken(),
         getDeviceName()
       );
-
-      clearInterval(this.cooldownInterval);
-      state.setAuth(res.token, res.user);
-      this.render();
-      authView.closeModal();
-      showToast(res.message || `Selamat datang, ${res.user.name}!`, 'success');
-      eventBus.emit('auth:changed', state.user);
+      this.completeAuth(res.token, res.user, res.message || `Selamat datang, ${res.user.name}!`);
     } catch (err) {
       showToast(err.message || 'Verifikasi OTP gagal.', 'error');
     } finally {
@@ -228,7 +149,6 @@ export const authController = {
       showToast('Sesi verifikasi tidak ditemukan.', 'warning');
       return;
     }
-
     try {
       const res = await authService.resendOTP(this.activeSession.email, this.activeSession.purpose);
       showToast(res.message || 'Kode OTP baru telah dikirimkan.', 'success');
@@ -243,52 +163,49 @@ export const authController = {
     authView.hideOtpVerification();
   },
 
+  openOtpStep(email, purpose, message = '', name = '') {
+    this.activeSession = { email, purpose, name };
+    authView.showOtpVerification({ email, purpose, message });
+    this.startCooldown(60);
+  },
+
   startCooldown(seconds) {
     clearInterval(this.cooldownInterval);
     let remaining = seconds;
     authView.setResendCooldown(remaining);
-
     this.cooldownInterval = setInterval(() => {
       remaining -= 1;
       authView.setResendCooldown(remaining);
-      if (remaining <= 0) {
-        clearInterval(this.cooldownInterval);
-      }
+      if (remaining <= 0) clearInterval(this.cooldownInterval);
     }, 1000);
+  },
+
+  completeAuth(token, user, message = '') {
+    clearInterval(this.cooldownInterval);
+    state.setAuth(token, user);
+    this.render();
+    authView.closeModal();
+    if (message) showToast(message, 'success');
+    eventBus.emit('auth:changed', state.user);
   },
 
   async handleGoogleClick(action = 'login') {
     this.pendingGoogleAction = action;
     const initiated = requestGoogleSignIn((token) => this.handleGoogleTokenReceived(token, action));
-    if (initiated !== null) return;
+    if (initiated) return;
 
-    // Fallback prompt jika script Google Identity Services terblokir
-    const promptMsg = action === 'register'
-      ? 'Daftar Akun dengan Google:\nMasukkan email Google Anda:'
-      : 'Masuk dengan Akun Google:\nMasukkan email Google Anda:';
+    const promptMsg = action === 'register' ? 'Daftar dengan Google:\nMasukkan email Google Anda:' : 'Masuk dengan Google:\nMasukkan email Google Anda:';
     const inputEmail = prompt(promptMsg, state.user ? state.user.email : 'user@gmail.com');
     if (!inputEmail || !inputEmail.trim()) return;
 
-    const email = inputEmail.trim();
-    const name = email.split('@')[0];
-    await this.processGoogleProfile(email, name, action);
+    await this.processGoogleProfile(inputEmail.trim(), inputEmail.trim().split('@')[0], action);
   },
 
   async handleGoogleTokenReceived(accessToken, action = 'login') {
     authView.setGoogleLoading(true, action === 'register' ? 'googleRegBtn' : 'googleAuthBtn');
-
     try {
-      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!userInfoRes.ok) throw new Error('Gagal mengambil data akun dari Google.');
-      const googleUser = await userInfoRes.json();
-
-      await this.processGoogleProfile(
-        googleUser.email,
-        googleUser.name || googleUser.given_name || googleUser.email.split('@')[0],
-        action || this.pendingGoogleAction || 'login'
-      );
+      const profile = await fetchGoogleUserProfile(accessToken);
+      await this.processGoogleProfile(profile.email, profile.name, action || this.pendingGoogleAction || 'login');
     } catch (err) {
       showToast(`Google login error: ${err.message}`, 'error');
     } finally {
@@ -298,36 +215,13 @@ export const authController = {
 
   async processGoogleProfile(email, name, action) {
     try {
-      const res = await authService.googleAuth(
-        email,
-        name,
-        getDeviceToken(),
-        getDeviceName(),
-        action
-      );
-
-      // Require OTP flow for new device or Google registration
+      const res = await authService.googleAuth(email, name, getDeviceToken(), getDeviceName(), action);
       if (res.require_otp) {
-        this.activeSession = {
-          email: res.email || email,
-          purpose: res.purpose || (action === 'register' ? 'registration' : 'login_new_device'),
-          name,
-        };
-        authView.showOtpVerification({
-          email: this.activeSession.email,
-          purpose: this.activeSession.purpose,
-          message: res.message,
-        });
-        this.startCooldown(60);
+        this.openOtpStep(res.email || email, res.purpose || (action === 'register' ? 'registration' : 'login_new_device'), res.message, name);
         showToast(res.message, 'info');
         return;
       }
-
-      state.setAuth(res.token, res.user);
-      this.render();
-      authView.closeModal();
-      showToast(`Berhasil masuk sebagai ${res.user.name}!`, 'success');
-      eventBus.emit('auth:changed', state.user);
+      this.completeAuth(res.token, res.user, `Berhasil masuk sebagai ${res.user.name}!`);
     } catch (err) {
       if (err.data && err.data.error === 'user_not_found') {
         showToast('Akun Google ini belum terdaftar. Mengalihkan Anda ke formulir pendaftaran...', 'info');

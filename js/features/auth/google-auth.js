@@ -56,11 +56,25 @@ export function requestGoogleSignIn(onTokenReceived) {
     }
     if (googleTokenClient) {
       googleTokenClient.requestAccessToken({ prompt: 'select_account' });
-      return;
+      return true;
     }
   }
-
-  // Fallback prompt for adblockers or offline SDK
   return null;
 }
 
+/**
+ * Fetches user profile information using the access token.
+ * @param {string} accessToken
+ * @returns {Promise<{email: string, name: string}>}
+ */
+export async function fetchGoogleUserProfile(accessToken) {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error('Gagal mengambil data akun dari Google.');
+  const profile = await res.json();
+  return {
+    email: profile.email,
+    name: profile.name || profile.given_name || profile.email.split('@')[0],
+  };
+}

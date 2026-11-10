@@ -42,3 +42,4 @@ export function getDeviceName() {
 
   return `${os} (${browser})`;
 }
+
