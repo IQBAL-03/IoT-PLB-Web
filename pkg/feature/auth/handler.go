@@ -143,22 +143,29 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// SendOTP generates and emails a 6-digit OTP code to the requested address.
-func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
+// RegisterRequestOTP validates registration info, checks if email is available, and sends a 6-digit OTP.
+func (h *Handler) RegisterRequestOTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	var req model.SendOTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Email) == "" {
-		response.Error(w, http.StatusBadRequest, "Alamat email wajib diisi.")
+	var req model.RegisterReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Email) == "" || len(req.Password) < 6 {
+		response.Error(w, http.StatusBadRequest, "Nama, email valid, dan password minimal 6 karakter dibutuhkan.")
 		return
 	}
 
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
 		response.Error(w, http.StatusBadRequest, "Format email tidak valid.")
+		return
+	}
+
+	// Cek apakah email sudah terdaftar
+	_, _, _, err := h.repo.GetUserByEmail(email)
+	if err == nil {
+		response.Error(w, http.StatusConflict, "Email sudah terdaftar. Silakan langsung masuk.")
 		return
 	}
 
@@ -177,21 +184,21 @@ func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
 
 	response.JSON(w, http.StatusOK, map[string]any{
 		"ok":      true,
-		"message": "Kode OTP berhasil dikirimkan ke email Anda (berlaku 5 menit).",
+		"message": "Kode OTP pendaftaran berhasil dikirimkan ke email Anda (berlaku 5 menit).",
 		"email":   email,
 	})
 }
 
-// VerifyOTP validates the OTP code and creates or logs in the user with JWT.
-func (h *Handler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
+// RegisterVerifyOTP verifies the OTP code and creates the new account with password.
+func (h *Handler) RegisterVerifyOTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	var req model.VerifyOTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Code) == "" {
-		response.Error(w, http.StatusBadRequest, "Email dan kode OTP wajib diisi.")
+	var req model.VerifyRegisterOTPReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Code) == "" || len(req.Password) < 6 {
+		response.Error(w, http.StatusBadRequest, "Nama, email, password minimal 6 karakter, dan kode OTP wajib diisi.")
 		return
 	}
 
@@ -208,23 +215,25 @@ func (h *Handler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uid, name, err := h.repo.UpsertEmailUser(req.Name, email, crypto.HashPassword("otp_verified_"+code))
+	passHash := crypto.HashPassword(req.Password)
+	uid, err := h.repo.CreateUser(req.Name, email, passHash)
 	if err != nil {
-		response.DBError(w, err)
+		response.Error(w, http.StatusConflict, "Email sudah terdaftar. Silakan langsung masuk.")
 		return
 	}
 
-	token, _ := crypto.CreateJWT(uid, email, name, h.cfg.JWTSecret)
+	token, _ := crypto.CreateJWT(int(uid), email, req.Name, h.cfg.JWTSecret)
 	response.JSON(w, http.StatusOK, map[string]any{
 		"ok":      true,
-		"message": "Verifikasi OTP berhasil!",
+		"message": "Pendaftaran akun berhasil! Selamat datang.",
 		"token":   token,
 		"user": map[string]any{
 			"id":    uid,
-			"name":  name,
+			"name":  req.Name,
 			"email": email,
 		},
 	})
 }
+
 
 

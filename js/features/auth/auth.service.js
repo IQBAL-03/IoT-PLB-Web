@@ -18,15 +18,29 @@ export const authService = {
   },
 
   /**
-   * Registers a new account.
+   * Requests an OTP code for new user registration.
    * @param {string} name
    * @param {string} email
    * @param {string} password
    */
-  async register(name, email, password) {
-    return apiFetch('/auth/register', {
+  async requestRegisterOTP(name, email, password) {
+    return apiFetch('/auth/register/request-otp', {
       method: 'POST',
       body: JSON.stringify({ name, email, password }),
+    });
+  },
+
+  /**
+   * Verifies registration OTP code and completes account creation.
+   * @param {string} name
+   * @param {string} email
+   * @param {string} password
+   * @param {string} code
+   */
+  async verifyRegisterOTP(name, email, password, code) {
+    return apiFetch('/auth/register/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password, code }),
     });
   },
 
@@ -39,30 +53,6 @@ export const authService = {
     return apiFetch('/auth/google', {
       method: 'POST',
       body: JSON.stringify({ email, name }),
-    });
-  },
-
-  /**
-   * Sends an OTP code to the given email address.
-   * @param {string} email
-   */
-  async sendOTP(email) {
-    return apiFetch('/auth/otp/send', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  },
-
-  /**
-   * Verifies OTP code and signs in or creates an account.
-   * @param {string} email
-   * @param {string} code
-   * @param {string} [name]
-   */
-  async verifyOTP(email, code, name = '') {
-    return apiFetch('/auth/otp/verify', {
-      method: 'POST',
-      body: JSON.stringify({ email, code, name }),
     });
   },
 
