@@ -219,3 +219,4 @@ func (h *Handler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 		"email":   email,
 	})
 }
+

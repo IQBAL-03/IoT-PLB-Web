@@ -86,3 +86,4 @@ func (h *Handler) dispatchRegistrationOTP(w http.ResponseWriter, email, name, pa
 		"message":     "Kode verifikasi telah dikirim ke email Anda. Silakan masukkan kode OTP untuk menyelesaikan pendaftaran.",
 	})
 }
+
